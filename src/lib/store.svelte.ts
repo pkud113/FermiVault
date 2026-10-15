@@ -1,7 +1,8 @@
 import type { EditorView } from "@codemirror/view";
+import type { EditorState, TransactionSpec } from "@codemirror/state";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { api, basename, dirname, fillTemplate, join, type Entry, type VaultConfig } from "./api";
-import { moved, serial } from "./docs";
+import { moved, serial, type Doc } from "./docs";
 import { host } from "./widgets";
 
 export type Settings = {
@@ -25,6 +26,10 @@ export type EditorHandle = {
   renamed(from: string, to: string): void;
   /** Never write notes at or under `path` again (`null`: all of them, the vault is closing). */
   closed(path: string | null): void;
+  /** The note on screen; null while one is loading. */
+  doc(): Doc<EditorState> | null;
+  /** Edits `d` whether or not it's still on screen; false if it was closed (trashed, vault switched). */
+  apply(d: Doc<EditorState>, spec: TransactionSpec): boolean;
 };
 export type PaletteMode =
   | { kind: "switcher" }
@@ -83,6 +88,12 @@ class App {
     try {
       localStorage.setItem("fv-settings", JSON.stringify(this.settings));
     } catch {}
+  }
+
+  /** The editor of the focused pane, if it shows a note. */
+  focusedEditor() {
+    const view = this.views[this.focus];
+    return [...this.editors].find((e) => e.view === view) ?? null;
   }
 
   /** Saves every open note; false if any save failed. */
@@ -197,10 +208,10 @@ class App {
   /** Lets the user pick a note from the templates folder and inserts it at the cursor. */
   insertTemplate() {
     const folder = (this.config.templatesFolder ?? "templates") + "/";
-    const view = this.views[this.focus];
-    const target = this.activePath;
+    const ed = this.focusedEditor();
+    const doc = ed?.doc();
     const templates = this.notes.filter((n) => n.startsWith(folder));
-    if (!view || !target?.endsWith(".md")) return void (this.error = "Open a note first, then insert a template.");
+    if (!ed || !doc) return void (this.error = "Open a note first, then insert a template.");
     if (!templates.length) return void (this.error = `No templates yet. Add notes to the “${folder}” folder.`);
     this.palette = {
       kind: "pick",
@@ -209,9 +220,9 @@ class App {
         label: basename(t),
         detail: dirname(t),
         run: async () => {
-          const text = fillTemplate(await api.read(t), basename(target));
-          view.dispatch(view.state.replaceSelection(text));
-          view.focus();
+          // Into the note that was open when the template was picked, even if the user switched since.
+          const text = fillTemplate(await api.read(t), basename(doc.path));
+          if (ed.apply(doc, doc.state.replaceSelection(text)) && ed.doc() === doc) ed.view.focus();
         },
       })),
     };
