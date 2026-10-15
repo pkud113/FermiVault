@@ -3,7 +3,7 @@
 
 use serde::Serialize;
 use std::fs;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub type Res<T> = Result<T, String>;
@@ -55,6 +55,35 @@ pub fn mtime(meta: &fs::Metadata) -> i64 {
         .map_or(0, |d| d.as_millis() as i64)
 }
 
+/// Symlinks and Windows junctions. Other reparse points, like OneDrive's
+/// files-on-demand placeholders, are ordinary files and are not links.
+fn is_link(p: &Path) -> bool {
+    fs::symlink_metadata(p).is_ok_and(|m| m.file_type().is_symlink())
+}
+
+/// One path segment: not hidden, no control characters, and on Windows nothing
+/// the OS would reinterpret (drive or stream colons, reserved device names,
+/// trailing dots/spaces that Windows silently strips).
+fn valid_name(name: &str) -> bool {
+    if name.starts_with('.') || name.chars().any(char::is_control) {
+        return false;
+    }
+    if cfg!(windows) {
+        if name.contains(['<', '>', ':', '"', '|', '?', '*']) || name.ends_with([' ', '.']) {
+            return false;
+        }
+        let stem = name.split('.').next().unwrap_or("").trim_end().to_ascii_uppercase();
+        let port = stem
+            .strip_prefix("COM")
+            .or_else(|| stem.strip_prefix("LPT"))
+            .is_some_and(|n| n.chars().count() == 1 && n.chars().all(|c| c.is_ascii_digit() || "¹²³".contains(c)));
+        if port || matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL" | "CONIN$" | "CONOUT$") {
+            return false;
+        }
+    }
+    true
+}
+
 impl Vault {
     pub fn new(root: impl Into<PathBuf>) -> Res<Self> {
         let root: PathBuf = root.into();
@@ -68,6 +97,9 @@ impl Vault {
             return Err(format!("{} is not a folder", root.display()));
         }
         fs::create_dir_all(root.join(".fermi")).map_err(err)?;
+        if is_link(&root.join(".fermi")) {
+            return Err(format!("{}: .fermi must be a real folder, not a link", root.display()));
+        }
         Ok(Self { root })
     }
 
@@ -75,21 +107,37 @@ impl Vault {
         self.root.join(".fermi")
     }
 
-    /// Vault-relative `rel` to an absolute path; rejects anything escaping the root
-    /// or touching hidden (dot) folders such as `.fermi`.
+    /// Vault-relative `rel` to an absolute path; rejects anything escaping the root,
+    /// touching hidden (dot) folders such as `.fermi`, or passing through a link.
+    ///
+    /// Each name is validated on its own before it is joined: on Windows a name like
+    /// `C:x` or `\\server\x` would otherwise replace the vault root when pushed.
+    // ponytail: links are checked just before use, so one swapped in at that exact moment
+    // can still slip through; closing that needs handle-relative (openat-style) file IO.
     pub fn abs(&self, rel: &str) -> Res<PathBuf> {
-        let p = Path::new(rel);
+        let bad = || format!("invalid path: {rel}");
+        if rel.starts_with(std::path::is_separator) {
+            return Err(bad());
+        }
         let mut out = self.root.clone();
-        for c in p.components() {
-            match c {
-                Component::Normal(s) if !s.to_string_lossy().starts_with('.') => out.push(s),
-                Component::CurDir => {}
-                _ => return Err(format!("invalid path: {rel}")),
+        let mut on_disk = true; // once a name doesn't exist, nothing below it can be a link
+        for name in rel.split(std::path::is_separator).filter(|n| !n.is_empty() && *n != ".") {
+            if !valid_name(name) {
+                return Err(bad());
+            }
+            out.push(name);
+            if on_disk {
+                match fs::symlink_metadata(&out) {
+                    Ok(m) if m.file_type().is_symlink() => return Err(format!("{rel}: links are not followed")),
+                    Ok(_) => {}
+                    Err(_) => on_disk = false,
+                }
             }
         }
         if out == self.root {
             return Err("empty path".into());
         }
+        debug_assert!(out.starts_with(&self.root));
         Ok(out)
     }
 
@@ -105,20 +153,32 @@ impl Vault {
     pub fn entries(&self) -> Vec<Entry> {
         let mut out = Vec::new();
         self.walk(&self.root, &mut out);
-        out
+        out.into_iter().map(|(e, _)| e).collect()
     }
 
-    fn walk(&self, dir: &Path, out: &mut Vec<Entry>) {
+    /// Links (symlinks, junctions) are skipped: they could lead outside the vault or loop forever.
+    /// File types and mtimes come from the directory listing itself, so this costs no extra stat calls.
+    fn walk(&self, dir: &Path, out: &mut Vec<(Entry, i64)>) {
         let Ok(rd) = fs::read_dir(dir) else { return };
-        let mut items: Vec<_> = rd.flatten().filter(|e| !e.file_name().to_string_lossy().starts_with('.')).collect();
-        items.sort_by_key(|e| (!e.path().is_dir(), e.file_name().to_string_lossy().to_lowercase()));
-        for e in items {
+        let mut items: Vec<_> = rd
+            .flatten()
+            .filter(|e| !e.file_name().to_string_lossy().starts_with('.'))
+            .filter_map(|e| Some((e.file_type().ok().filter(|t| !t.is_symlink())?, e)))
+            .collect();
+        items.sort_by_cached_key(|(t, e)| (!t.is_dir(), e.file_name().to_string_lossy().to_lowercase()));
+        for (t, e) in items {
             let path = e.path();
-            let dir = path.is_dir();
             if let Some(rel) = self.rel(&path) {
-                out.push(Entry { path: rel, dir });
+                let m = e.metadata().map_or(0, |m| mtime(&m));
+                out.push((
+                    Entry {
+                        path: rel,
+                        dir: t.is_dir(),
+                    },
+                    m,
+                ));
             }
-            if dir {
+            if t.is_dir() {
                 self.walk(&path, out);
             }
         }
@@ -126,13 +186,11 @@ impl Vault {
 
     /// (rel path, mtime ms) for every markdown note.
     pub fn notes(&self) -> Vec<(String, i64)> {
-        self.entries()
-            .into_iter()
-            .filter(|e| !e.dir && e.path.ends_with(".md"))
-            .filter_map(|e| {
-                let m = mtime(&fs::metadata(self.abs(&e.path).ok()?).ok()?);
-                Some((e.path, m))
-            })
+        let mut out = Vec::new();
+        self.walk(&self.root, &mut out);
+        out.into_iter()
+            .filter(|(e, _)| !e.dir && e.path.ends_with(".md"))
+            .map(|(e, m)| (e.path, m))
             .collect()
     }
 
@@ -284,6 +342,102 @@ mod tests {
         assert_eq!(v.notes().len(), 1);
         v.trash("b.md").unwrap();
         assert!(v.notes().is_empty());
+    }
+
+    #[test]
+    fn platform_path_tricks_rejected() {
+        let d = tempfile::tempdir().unwrap();
+        let v = Vault::new(d.path()).unwrap();
+        for ok in ["a/b.md", "./a/./b.md", "a//b.md", "Meeting notes 2026.md", "com10.md", "console.md"] {
+            assert!(v.abs(ok).unwrap().starts_with(&v.root), "{ok} should be accepted");
+        }
+        let mut bad = vec!["/abs.md", "a/\u{0}.md", "a/\n.md"];
+        if cfg!(windows) {
+            bad.extend([
+                "safe/C:outside.md",
+                "C:outside.md",
+                "C:.fermi",
+                r"C:\outside.md",
+                r"\abs.md",
+                r"\\server\share\x.md",
+                r"\\?\C:\x.md",
+                r"\\.\pipe\x",
+                r"a\..\..\x.md",
+                r"a\.fermi\x",
+                "a/x.md:stream",
+                "a/CON",
+                "a/nul.md",
+                "a/Com1.txt",
+                "a/LPT².md",
+                "a/x.md.",
+                "a/x ",
+            ]);
+        }
+        for p in bad {
+            assert!(v.abs(p).is_err(), "{p:?} should be rejected");
+        }
+    }
+
+    /// Makes `link` point at directory `target`: a junction on Windows (no admin needed), a symlink elsewhere.
+    fn dir_link(target: &Path, link: &Path) -> bool {
+        #[cfg(windows)]
+        return std::process::Command::new("cmd")
+            .args(["/c", "mklink", "/J"])
+            .arg(link)
+            .arg(target)
+            .output()
+            .is_ok_and(|o| o.status.success());
+        #[cfg(unix)]
+        return std::os::unix::fs::symlink(target, link).is_ok();
+    }
+
+    #[test]
+    fn links_are_not_followed() {
+        let d = tempfile::tempdir().unwrap();
+        let (root, outside) = (d.path().join("vault"), d.path().join("outside"));
+        fs::create_dir_all(&root).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(outside.join("secret.md"), "secret").unwrap();
+        let v = Vault::new(&root).unwrap();
+        v.write("real/a.md", "a").unwrap();
+
+        assert!(dir_link(&outside, &root.join("out")), "could not create a directory link");
+        assert!(dir_link(&root, &root.join("real").join("loop")), "could not create a looping link");
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(outside.join("secret.md"), root.join("file.md")).unwrap();
+        // Windows file symlinks need admin or developer mode; test them when available.
+        #[cfg(windows)]
+        let _ = std::os::windows::fs::symlink_file(outside.join("secret.md"), root.join("file.md"));
+
+        // Enumeration and indexing skip links (and so can't loop).
+        let paths: Vec<_> = v.entries().into_iter().map(|e| e.path).collect();
+        assert_eq!(paths, ["real", "real/a.md"]);
+        assert_eq!(v.notes().len(), 1);
+
+        // Reads, writes, folder creation and renames through a link are refused.
+        assert!(v.read("out/secret.md").is_err());
+        assert!(v.write("out/new.md", "x").is_err());
+        assert!(v.write("out/secret.md", "pwned").is_err());
+        assert!(v.mkdir("out/sub").is_err());
+        assert!(v.create("real/loop/real/b.md", "x").is_err());
+        assert!(v.rename("real/a.md", "out/a.md").is_err());
+        if is_link(&root.join("file.md")) {
+            assert!(v.read("file.md").is_err());
+            assert!(v.write("file.md", "pwned").is_err());
+        }
+        assert_eq!(fs::read_to_string(outside.join("secret.md")).unwrap(), "secret");
+        assert_eq!(fs::read_dir(&outside).unwrap().count(), 1, "nothing created outside");
+        assert!(v.read("real/a.md").is_ok(), "ordinary notes still work");
+    }
+
+    #[test]
+    fn linked_dot_folder_rejected() {
+        let d = tempfile::tempdir().unwrap();
+        let (root, elsewhere) = (d.path().join("vault"), d.path().join("elsewhere"));
+        fs::create_dir_all(&root).unwrap();
+        fs::create_dir_all(&elsewhere).unwrap();
+        assert!(dir_link(&elsewhere, &root.join(".fermi")));
+        assert!(Vault::new(&root).is_err());
     }
 
     #[test]
