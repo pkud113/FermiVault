@@ -47,7 +47,10 @@
   function persist(d: Doc<EditorState>): Promise<boolean> {
     clearTimeout(d.retry);
     return saveDoc(d, text, api.write).then(
-      () => true,
+      (conflict) => {
+        if (conflict) app.error = `${d.path} was also changed outside FermiVault. Your version is saved; the other one is in File recovery.`;
+        return true;
+      },
       (e) => {
         if (d.closed) return false;
         app.error = `Couldn't save ${d.path}: ${e}. Your changes are kept and FermiVault keeps retrying.`;

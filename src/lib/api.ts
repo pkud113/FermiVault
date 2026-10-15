@@ -18,8 +18,9 @@ export const api = {
   openVault: (path: string) => invoke<string>("open_vault", { path }),
   listFiles: () => invoke<Entry[]>("list_files"),
   read: (path: string) => invoke<string>("read_note", { path }),
-  /** `vault` is the root the note was opened from; the backend refuses writes meant for another vault. */
-  write: (vault: string, path: string, content: string) => invoke<void>("write_note", { vault, path, content }),
+  /** `vault` is the root the note was opened from; the backend refuses writes meant for another vault.
+   *  `base` is the text last read or written; resolves true if disk had changed since (that version is kept as a snapshot). */
+  write: (vault: string, path: string, content: string, base: string) => invoke<boolean>("write_note", { vault, path, content, base }),
   create: (path: string, content = "") => invoke<void>("create_note", { path, content }),
   mkdir: (path: string) => invoke<void>("create_folder", { path }),
   rename: (from: string, to: string) => invoke<number>("rename_path", { from, to }),

@@ -13,7 +13,9 @@ export type Doc<S> = {
   retry?: ReturnType<typeof setTimeout>;
 };
 
-export type Writer = (vault: string, path: string, text: string) => Promise<unknown>;
+/** Writes `text`; `base` is what disk had at the last load/save. Resolves true when disk
+ *  had changed since (the backend then keeps that version as a snapshot). */
+export type Writer = (vault: string, path: string, text: string, base: string) => Promise<boolean>;
 
 let tail: Promise<unknown> = Promise.resolve();
 
@@ -29,13 +31,15 @@ export function serial<T>(task: () => Promise<T>): Promise<T> {
 
 /** Writes `doc` if it differs from disk. Vault, path and text are read when the write
  *  actually runs, so renames and later typing are respected. `saved` only advances
- *  once the write succeeds: a failed save stays dirty and the next one retries it. */
-export function saveDoc<S>(doc: Doc<S>, text: (s: S) => string, write: Writer): Promise<void> {
+ *  once the write succeeds: a failed save stays dirty and the next one retries it.
+ *  Resolves true when someone else had changed the file since we last synced. */
+export function saveDoc<S>(doc: Doc<S>, text: (s: S) => string, write: Writer): Promise<boolean> {
   return serial(async () => {
     const t = text(doc.state);
-    if (doc.closed || t === doc.saved) return;
-    await write(doc.vault, doc.path, t);
+    if (doc.closed || t === doc.saved) return false;
+    const conflict = await write(doc.vault, doc.path, t, doc.saved);
     doc.saved = t;
+    return conflict;
   });
 }
 

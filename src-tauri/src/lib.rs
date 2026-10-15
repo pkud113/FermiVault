@@ -126,22 +126,25 @@ async fn read_note(state: State<'_, AppState>, path: String) -> Res<String> {
     state.get()?.vault.read(&path)
 }
 
+/// Saves editor text. `base` is the text the editor last loaded or saved; returns true when
+/// disk had changed since, in which case that version was kept as a snapshot.
 #[tauri::command]
-async fn write_note(state: State<'_, AppState>, vault: String, path: String, content: String) -> Res<()> {
+async fn write_note(state: State<'_, AppState>, vault: String, path: String, content: String, base: String) -> Res<bool> {
     let o = state.get()?;
     // A save that outlived a vault switch must not land in the new vault.
     if vault != o.vault.root.to_string_lossy() {
         return Err(format!("{path} belongs to a vault that is no longer open"));
     }
-    // Keep a recovery point at most every 5 minutes of editing.
-    o.vault.snapshot(&path, 5 * 60_000)?;
-    o.vault.write(&path, &content)?;
-    o.ix.lock().unwrap().refresh(&o.vault, &path)
+    let _lock = o.vault.lock()?;
+    let conflict = o.vault.save(&path, &content, &base)?;
+    o.ix.lock().unwrap().refresh(&o.vault, &path)?;
+    Ok(conflict)
 }
 
 #[tauri::command]
 async fn create_note(state: State<'_, AppState>, path: String, content: String) -> Res<()> {
     let o = state.get()?;
+    let _lock = o.vault.lock()?;
     o.vault.create(&path, &content)?;
     o.ix.lock().unwrap().refresh(&o.vault, &path)
 }
@@ -156,6 +159,7 @@ async fn create_folder(state: State<'_, AppState>, path: String) -> Res<()> {
 #[tauri::command]
 async fn rename_path(state: State<'_, AppState>, from: String, to: String) -> Res<usize> {
     let o = state.get()?;
+    let _lock = o.vault.lock()?;
     let mut ix = o.ix.lock().unwrap();
     if from.ends_with(".md") && to.ends_with(".md") {
         return ix.rename_note(&o.vault, &from, &to);
@@ -168,6 +172,7 @@ async fn rename_path(state: State<'_, AppState>, from: String, to: String) -> Re
 #[tauri::command]
 async fn trash_path(state: State<'_, AppState>, path: String) -> Res<()> {
     let o = state.get()?;
+    let _lock = o.vault.lock()?;
     o.vault.trash(&path)?;
     o.ix.lock().unwrap().sync(&o.vault).map(|_| ())
 }
@@ -305,6 +310,7 @@ async fn read_snapshot(state: State<'_, AppState>, path: String, id: String) -> 
 #[tauri::command]
 async fn restore_snapshot(state: State<'_, AppState>, path: String, id: String) -> Res<()> {
     let o = state.get()?;
+    let _lock = o.vault.lock()?;
     o.vault.restore_snapshot(&path, &id)?;
     o.ix.lock().unwrap().refresh(&o.vault, &path)
 }
