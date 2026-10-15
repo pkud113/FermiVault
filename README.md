@@ -8,7 +8,7 @@ Fast, local-first Markdown notes that your AI apps can work with natively.
 
 ## Download
 
-Get the latest Windows installer from [**Releases**](https://github.com/pkud113/fermivault-app/releases/latest): download `FermiVault_x.y.z_x64-setup.exe` and run it. No admin rights are needed; it installs for your user and adds a Start menu entry. Then pick any folder as your vault.
+Get the latest Windows installer from [**Releases**](https://github.com/pkud113/FermiVault/releases/latest): download `FermiVault_x.y.z_x64-setup.exe` and run it. No admin rights are needed; it installs for your user and adds a Start menu entry. Then pick any folder as your vault.
 
 The installer isn't code-signed yet, so Windows SmartScreen may say "Windows protected your PC". Choose **More info → Run anyway**. macOS and Linux builds will follow; until then, build from source (below).
 
@@ -39,13 +39,20 @@ AI apps connected over MCP get the same hybrid `search` plus a `related` tool.
 
 ## MCP tools
 
-`search`, `read_note` (whole note or one section), `list_notes`, `recent_changes`, `links`, `tags`, `create_note`, `edit_note` (`append` / `str_replace` / `replace_section` / `replace`), `rename_note`.
+`search`, `read_note` (whole note or one section), `list_notes`, `recent_changes`, `links`, `related`, `tags`, `create_note`, `edit_note` (`append` / `str_replace` / `replace_section` / `replace`), `rename_note`.
 
 Run it manually:
 
 ```bash
 fermivault mcp --vault /path/to/vault
 ```
+
+## Privacy
+
+- Your vault never leaves your computer unless you send it somewhere: chat and writing go only to the model server you pick in Settings → AI. Plain `http` is allowed only on your computer or local network, and API keys are only sent over `https` (or to your own computer).
+- Images from the web in notes and AI answers wait for a click, so opening a note never contacts another server. Turn on *Load web images automatically* in Settings if you prefer.
+- The semantic search model is downloaded once, on request, from a pinned Hugging Face revision and checked against its SHA-256.
+- Security issues: see [SECURITY.md](SECURITY.md).
 
 ## Develop
 
@@ -58,6 +65,7 @@ pnpm tauri dev
 
 ```bash
 cargo test --manifest-path src-tauri/Cargo.toml
+pnpm test
 ```
 
 `fixtures/test-vault` is a small vault for trying things out.

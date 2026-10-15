@@ -5,7 +5,7 @@
 import { Facet, StateField, type EditorState } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
-import { assetUrl, kind, sectionRange } from "./api";
+import { assetUrl, imageTarget, kind, sectionRange } from "./api";
 
 /** App services the widgets need; filled in by the app at startup. */
 export const host = {
@@ -14,6 +14,7 @@ export const host = {
   read: async (_path: string) => "",
   open: (_path: string, _newTab: boolean) => {},
   dark: () => false,
+  remoteImages: () => false,
   /** Read-only live-preview editor for transclusions (set by editor.ts to avoid an import cycle). */
   nested: (_doc: string, _depth: number): EditorView => {
     throw new Error("nested editor not configured");
@@ -50,17 +51,37 @@ function media(path: string, width?: number): HTMLElement {
   return el;
 }
 
+/** Web images the user clicked to load this session. */
+const allowedImages = new Set<string>();
+
 class ImageWidget extends WidgetType {
-  constructor(readonly src: string, readonly alt: string) {
+  constructor(readonly src: string, readonly alt: string, readonly remote: boolean) {
     super();
   }
   eq(o: ImageWidget) {
     return o.src === this.src;
   }
   toDOM(view: EditorView) {
-    const img = Object.assign(document.createElement("img"), { src: this.src, alt: this.alt, className: "cm-embed-img" });
-    img.onload = () => view.requestMeasure();
-    return img;
+    const img = () => {
+      // No referrer: the image host doesn't learn anything about the note or app.
+      const el = Object.assign(document.createElement("img"), { src: this.src, alt: this.alt, className: "cm-embed-img", referrerPolicy: "no-referrer" });
+      el.onload = () => view.requestMeasure();
+      return el;
+    };
+    if (!this.remote || host.remoteImages() || allowedImages.has(this.src)) return img();
+    // Notes and AI answers can come from anywhere; loading a web image tells its host you opened them.
+    const btn = Object.assign(document.createElement("button"), {
+      className: "cm-embed-remote",
+      textContent: `Load image from ${new URL(this.src).host}`,
+      title: this.src,
+    });
+    btn.onmousedown = (e) => {
+      e.preventDefault();
+      allowedImages.add(this.src);
+      btn.replaceWith(img());
+      view.requestMeasure();
+    };
+    return btn;
   }
 }
 
@@ -222,10 +243,10 @@ function candidates(state: EditorState): Candidate[] {
         const u = n.node.getChild("URL");
         const alt = state.sliceDoc(n.from + 2, (n.node.getChildren("LinkMark")[1]?.from ?? n.from + 2));
         if (!u) return;
-        const href = decodeURI(state.sliceDoc(u.from, u.to));
-        const local = !/^[a-z][a-z0-9+.-]*:/i.test(href) && resolveFile(href);
-        const src = local ? url(local) : /^https?:/i.test(href) ? href : null;
-        if (src) out.push({ from: n.from, to: n.to, block: false, widget: new ImageWidget(src, alt) });
+        const t = imageTarget(state.sliceDoc(u.from, u.to));
+        const local = t && "path" in t && resolveFile(t.path);
+        if (local) out.push({ from: n.from, to: n.to, block: false, widget: new ImageWidget(url(local), alt, false) });
+        else if (t && "web" in t) out.push({ from: n.from, to: n.to, block: false, widget: new ImageWidget(t.web, alt, true) });
       }
       if (n.name === "TaskMarker") {
         const checked = state.sliceDoc(n.from + 1, n.from + 2).toLowerCase() === "x";

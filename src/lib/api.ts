@@ -66,6 +66,17 @@ export function assetUrl(root: string, path: string) {
   return convertFileSrc(root + sep + path.split("/").join(sep));
 }
 
+/** What a Markdown image URL points at: a vault path, a web (http/https) image, or nothing we load
+ *  (other schemes). A malformed %-escape is used as written instead of throwing. */
+export function imageTarget(raw: string): { path: string } | { web: string } | null {
+  let href = raw;
+  try {
+    href = decodeURI(raw);
+  } catch {}
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(href)) return { path: href };
+  return URL.canParse(href) && /^https?:$/i.test(new URL(href).protocol) ? { web: href } : null;
+}
+
 /** Byte range of the section under `heading` (heading line up to the next heading of the same or higher level). */
 export function sectionRange(text: string, heading: string): [number, number] | null {
   const want = heading.trim().replace(/^#+/, "").trim().toLowerCase();

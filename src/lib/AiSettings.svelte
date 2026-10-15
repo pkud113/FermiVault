@@ -13,14 +13,16 @@
   let custom = $state(app.settings.aiBaseUrl);
   let key = $state("");
   let hasKey = $state(false);
+  let urlError = $state("");
 
   const refresh = () => api.embedStatus().then((s) => (status = s)).catch(() => {});
 
   async function loadModels(base: string) {
     models = [];
+    urlError = "";
     if (!base) return;
     hasKey = await api.aiHasKey(base).catch(() => false);
-    models = await api.aiModels(base).catch(() => []);
+    models = await api.aiModels(base).catch((e) => ((urlError = String(e)), []));
     if (models.length && !models.includes(app.settings.aiModel)) app.settings.aiModel = models[0];
   }
 
@@ -93,6 +95,7 @@
     <input bind:value={custom} placeholder="https://api.example.com/v1" spellcheck="false" />
     <button onclick={() => useEndpoint(custom.trim())}>Use URL</button>
   </div>
+  {#if urlError}<small class="err">{urlError}</small>{/if}
   {#if app.settings.aiBaseUrl}
     <div class="row">
       <span>Model</span>
@@ -152,6 +155,9 @@
   progress {
     width: 100%;
     accent-color: var(--fv-accent);
+  }
+  .err {
+    color: var(--fv-danger);
   }
   .link {
     border: none;

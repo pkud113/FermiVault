@@ -13,6 +13,8 @@ export type Settings = {
   /** OpenAI-compatible endpoint for in-app AI (local server by default) and the chosen model. */
   aiBaseUrl: string;
   aiModel: string;
+  /** Load images from the web without a click. Off: opening a note never contacts other servers. */
+  remoteImages: boolean;
 };
 export type Pane = { tabs: string[]; active: number };
 export type Command = { id: string; name: string; keys?: string; run: () => unknown };
@@ -40,7 +42,7 @@ export type PaletteMode =
 /** Tab "path" for the global graph view. */
 export const GRAPH = "fermi:graph";
 
-const DEFAULTS: Settings = { theme: "system", fontSize: 16, livePreview: true, readableWidth: true, aiBaseUrl: "", aiModel: "" };
+const DEFAULTS: Settings = { theme: "system", fontSize: 16, livePreview: true, readableWidth: true, aiBaseUrl: "", aiModel: "", remoteImages: false };
 
 function loadSettings(): Settings {
   try {
@@ -303,4 +305,5 @@ Object.assign(host, {
   read: (path: string) => api.read(path),
   open: (path: string, newTab: boolean) => app.open(path, newTab),
   dark: () => document.documentElement.dataset.theme === "dark",
+  remoteImages: () => app.settings.remoteImages,
 });

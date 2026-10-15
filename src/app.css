@@ -244,6 +244,15 @@ span.cm-embed {
   color: var(--fv-danger);
   font-size: 0.9em;
 }
+.cm-embed-remote {
+  font-size: 0.85em;
+  padding: 2px 8px;
+  color: var(--fv-muted);
+  border: 1px dashed var(--fv-border);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
 .cm-math-block,
 .cm-mermaid {
   display: block;
