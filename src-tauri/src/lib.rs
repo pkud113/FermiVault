@@ -127,8 +127,12 @@ async fn read_note(state: State<'_, AppState>, path: String) -> Res<String> {
 }
 
 #[tauri::command]
-async fn write_note(state: State<'_, AppState>, path: String, content: String) -> Res<()> {
+async fn write_note(state: State<'_, AppState>, vault: String, path: String, content: String) -> Res<()> {
     let o = state.get()?;
+    // A save that outlived a vault switch must not land in the new vault.
+    if vault != o.vault.root.to_string_lossy() {
+        return Err(format!("{path} belongs to a vault that is no longer open"));
+    }
     // Keep a recovery point at most every 5 minutes of editing.
     o.vault.snapshot(&path, 5 * 60_000)?;
     o.vault.write(&path, &content)?;

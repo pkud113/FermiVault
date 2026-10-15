@@ -18,7 +18,8 @@ export const api = {
   openVault: (path: string) => invoke<string>("open_vault", { path }),
   listFiles: () => invoke<Entry[]>("list_files"),
   read: (path: string) => invoke<string>("read_note", { path }),
-  write: (path: string, content: string) => invoke<void>("write_note", { path, content }),
+  /** `vault` is the root the note was opened from; the backend refuses writes meant for another vault. */
+  write: (vault: string, path: string, content: string) => invoke<void>("write_note", { vault, path, content }),
   create: (path: string, content = "") => invoke<void>("create_note", { path, content }),
   mkdir: (path: string) => invoke<void>("create_folder", { path }),
   rename: (from: string, to: string) => invoke<number>("rename_path", { from, to }),

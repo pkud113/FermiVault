@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { listen } from "@tauri-apps/api/event";
-  import { open as pickFolder } from "@tauri-apps/plugin-dialog";
+  import { getCurrentWindow } from "@tauri-apps/api/window";
+  import { ask, open as pickFolder } from "@tauri-apps/plugin-dialog";
   import { api, basename, dirname, kind } from "$lib/api";
   import { app, GRAPH, type Command } from "$lib/store.svelte";
   import { ai, inlineAI } from "$lib/ai.svelte";
@@ -138,6 +139,13 @@
         refresh = setTimeout(() => app.refreshFiles(), 200);
       }),
       listen("index-ready", () => app.version++),
+      // Write any edits still waiting on the save debounce before the window goes away.
+      getCurrentWindow().onCloseRequested(async (e) => {
+        if (await app.flush()) return;
+        if (!(await ask("Some notes couldn't be saved. Close anyway and lose those edits?", { title: "Unsaved changes", kind: "warning" }))) {
+          e.preventDefault();
+        }
+      }),
     ];
     api.lastVault().then(async (v) => {
       if (v) await app.openVault(v);
