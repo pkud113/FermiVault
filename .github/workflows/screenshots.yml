@@ -25,6 +25,12 @@ jobs:
           workspaces: src-tauri
       - run: pnpm install --frozen-lockfile
       - run: pnpm tauri build --no-bundle
+      - name: Let the DevTools protocol reach the app's WebView2
+        shell: pwsh
+        run: |
+          $k = "HKCU:\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments"
+          New-Item -Force $k | Out-Null
+          New-ItemProperty -Force -Path $k -Name fermivault.exe -Value "--remote-debugging-port=9222" | Out-Null
       - run: node scripts/screenshots.mjs src-tauri/target/release/fermivault.exe screenshots
       - uses: actions/upload-artifact@v4
         if: always()

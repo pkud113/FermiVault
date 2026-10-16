@@ -42,6 +42,8 @@ for ($run = 1; $run -le $Runs; $run++) {
 }
 
 # The first launch also creates the WebView2 profile; budgets use the later ones.
+$steps = Get-Content $ready -Raw
+Write-Output "Last launch, ms after the app's own start (`"rust`") or the page's (`"webview`"): $steps"
 $warm = $times[1..($times.Count - 1)] | Sort-Object
 $median = $warm[[math]::Floor($warm.Count / 2)]
 $report = @"
@@ -52,7 +54,7 @@ $report = @"
 | Idle RAM (app + WebView2, private) | $ramMB MB | $RamBudgetMB MB |
 "@
 Write-Output $report
-if ($env:GITHUB_STEP_SUMMARY) { "### Startup budgets`n$report" | Add-Content $env:GITHUB_STEP_SUMMARY }
+if ($env:GITHUB_STEP_SUMMARY) { "### Startup budgets`n$report`n`nLast launch: ``$steps``" | Add-Content $env:GITHUB_STEP_SUMMARY }
 $fail = @()
 if ($median -gt $StartBudgetMs) { $fail += "cold start $median ms > $StartBudgetMs ms" }
 if ($ramMB -gt $RamBudgetMB) { $fail += "idle RAM $ramMB MB > $RamBudgetMB MB" }

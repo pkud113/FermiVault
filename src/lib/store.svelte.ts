@@ -148,13 +148,16 @@ class App {
       // Inside the write queue: no save can run between the switch and closing the old notes.
       await serial(async () => {
         const root = await api.openVault(path);
+        performance.mark("vault opened");
         for (const e of this.allSavers) e.closed(null);
         this.panes = [{ tabs: [], active: 0 }];
         this.focus = 0;
         this.root = root;
       });
       this.config = await api.config();
+      performance.mark("config loaded");
       await this.refreshFiles();
+      performance.mark("files listed");
     } catch (e) {
       this.error = String(e);
     }

@@ -243,6 +243,7 @@
         }
       }),
     ];
+    performance.mark("mounted");
     api.lastVault().then(async (v) => {
       if (v) await app.openVault(v);
       ready = true;

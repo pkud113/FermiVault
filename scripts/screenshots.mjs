@@ -158,15 +158,15 @@ const app = spawn(exe, [], {
   stdio: "ignore",
 });
 
-let target;
+let target, last;
 for (let i = 0; i < 120 && !target; i++) {
   await sleep(500);
   target = await fetch("http://127.0.0.1:9222/json")
     .then((r) => r.json())
-    .then((l) => l.find((t) => t.type === "page"))
-    .catch(() => null);
+    .then((l) => ((last = l), l.find((t) => t.type === "page")))
+    .catch((e) => void (last = e.message));
 }
-if (!target) throw new Error("no DevTools target");
+if (!target) throw new Error(`no DevTools target: ${JSON.stringify(last)}`);
 
 const ws = new WebSocket(target.webSocketDebuggerUrl);
 await new Promise((r) => ws.addEventListener("open", r, { once: true }));
