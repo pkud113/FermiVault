@@ -21,6 +21,8 @@ async function layout(page, label) {
   if (l) assert.ok(l.x <= 1, `${at}: left sidebar starts at ${l.x}`);
   assert.ok(f && f.x <= 1 && Math.abs(f.w - page.width) <= 1, `${at}: footer spans the window`);
   for (const p of panes) assert.ok(p.w >= 250 && p.x >= m.x - 1 && p.x + p.w <= m.right + 1, `${at}: pane ${JSON.stringify(p)} inside main`);
+  // The left sidebar's icons stay on one row, even when the sidebar is squeezed.
+  if (l) assert.equal(await page.js(`new Set([...document.querySelectorAll("aside.left .switch button")].map((b) => Math.round(b.getBoundingClientRect().top))).size`), 1, `${at}: sidebar icons wrap`);
   // Every pane's tab strip and body is on screen.
   const tabs = await page.js(`[...document.querySelectorAll("main .pane .tabs")].every((t) => t.getBoundingClientRect().width > 200)`);
   assert.ok(tabs, `${at}: tab strips visible`);
@@ -55,6 +57,9 @@ test("compact window: the sidebar opened last wins, in both orders", async () =>
   await page.shot("layout-compact-right-812");
   await toggle(page, "left"); // left is hidden for room, so this reveals it with priority
   assert.deepEqual(await layout(page, "left requested"), { left: true, right: false });
+  await page.resize(600); // the left sidebar squeezed to 220px
+  assert.deepEqual(await layout(page, "minimum window"), { left: true, right: false });
+  await page.shot("layout-600-left");
   await page.close();
 });
 
@@ -73,5 +78,8 @@ test("split panes and sidebar resizing keep every pane inside the workspace", as
   await layout(page, "right widened");
   await page.resize(900);
   await layout(page, "two panes at 900px");
+  await page.resize(600);
+  await layout(page, "two panes at 600px");
+  await page.shot("layout-600");
   await page.close();
 });

@@ -518,17 +518,17 @@
   .switch {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
+    gap: 2px;
     padding: 8px 8px 0;
   }
   .views {
     display: flex;
-    gap: 4px;
+    gap: 2px;
   }
   .switch button {
     border: none;
     background: none;
-    padding: 5px;
+    padding: 5px 4px;
     display: grid;
     place-items: center;
   }
