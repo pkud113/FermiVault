@@ -15,6 +15,8 @@ export type Settings = {
   aiModel: string;
   /** Load images from the web without a click. Off: opening a note never contacts other servers. */
   remoteImages: boolean;
+  /** Vim key bindings in the editor. */
+  vim: boolean;
 };
 export type Pane = { tabs: string[]; active: number };
 export type Command = { id: string; name: string; keys?: string; run: () => unknown };
@@ -42,7 +44,7 @@ export type PaletteMode =
 /** Tab "path" for the global graph view. */
 export const GRAPH = "fermi:graph";
 
-const DEFAULTS: Settings = { theme: "system", fontSize: 16, livePreview: true, readableWidth: true, aiBaseUrl: "", aiModel: "", remoteImages: false };
+const DEFAULTS: Settings = { theme: "system", fontSize: 16, livePreview: true, readableWidth: true, aiBaseUrl: "", aiModel: "", remoteImages: false, vim: false };
 
 function loadSettings(): Settings {
   try {

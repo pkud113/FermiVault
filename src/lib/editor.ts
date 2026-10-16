@@ -1,4 +1,4 @@
-import { Compartment, EditorSelection, EditorState, type Range } from "@codemirror/state";
+import { Compartment, EditorSelection, EditorState, type Extension, type Range } from "@codemirror/state";
 import {
   Decoration, type DecorationSet, EditorView, ViewPlugin, type ViewUpdate, WidgetType,
   drawSelection, dropCursor, highlightActiveLine, keymap, rectangularSelection,
@@ -20,6 +20,17 @@ export type LinkHandler = (target: string, kind: "wiki" | "md" | "url", newTab: 
 
 /** Swapped at runtime to toggle live preview / source mode without rebuilding state. */
 export const previewMode = new Compartment();
+/** Vim key bindings; empty unless enabled in Settings. Listed first so Vim sees keys before other keymaps. */
+export const vimMode = new Compartment();
+
+let vimExt: Promise<Extension> | null = null;
+/** Loads Vim bindings on first use (they're not in the startup bundle). `:w` saves via `onWrite`. */
+export function loadVim(onWrite: () => void): Promise<Extension> {
+  return (vimExt ??= import("@replit/codemirror-vim").then(({ vim, Vim }) => {
+    Vim.defineEx("write", "w", onWrite);
+    return vim({ status: true });
+  }));
+}
 
 const WIKI = /(!?)\[\[([^[\]|]+?)(?:\|([^[\]]+?))?\]\]/g;
 const HIDDEN = new Set(["HeaderMark", "EmphasisMark", "CodeMark", "LinkMark", "URL", "StrikethroughMark", "QuoteMark"]);
@@ -289,6 +300,7 @@ export function createState(doc: string, o: EditorOptions): EditorState {
   return EditorState.create({
     doc,
     extensions: [
+      vimMode.of([]),
       embedDepth.of(o.depth ?? 0),
       EditorState.readOnly.of(!!o.readOnly),
       EditorView.editable.of(!o.readOnly),
