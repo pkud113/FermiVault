@@ -78,6 +78,6 @@ jobs:
         env:
           FERMIVAULT_BENCH_VAULT: ${{ runner.temp }}/bench-vault
         run: cargo test --profile budgets --test budgets -- --ignored --nocapture
-      - name: Cold start under 400 ms, idle RAM under 150 MB
+      - name: Cold start and idle RAM under 150 MB
         shell: pwsh
         run: ./scripts/bench-startup.ps1 -Exe src-tauri/target/release/fermivault.exe -Vault "${{ runner.temp }}/bench-vault"
