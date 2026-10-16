@@ -40,6 +40,11 @@
     if (typeof dir === "string") await app.openVault(dir);
   }
 
+  async function clipPage() {
+    const url = (await app.ask("Web page to clip (https://…)"))?.trim();
+    if (url) app.clip(/^[a-z]+:\/\//i.test(url) ? url : `https://${url}`);
+  }
+
   /** Inserts a starter ```table``` block at the cursor. */
   function insertTable() {
     const ed = app.focusedEditor();
@@ -58,6 +63,7 @@
     { id: "switcher", name: "Quick switcher: open or create a note", keys: "Ctrl+O", run: () => (app.palette = { kind: "switcher" }) },
     { id: "new", name: "New note", keys: "Ctrl+N", run: () => app.newNote(dirname(app.activePath ?? "")) },
     { id: "new-canvas", name: "New canvas", run: () => app.newCanvas(dirname(app.activePath ?? "")) },
+    { id: "clip", name: "Clip web page as a note…", run: clipPage },
     { id: "search", name: "Search vault", keys: "Ctrl+Shift+F", run: () => (app.reveal("left"), (app.left = "search")) },
     { id: "rename", name: "Rename current note", keys: "F2", run: () => app.activePath && app.rename(app.activePath) },
     { id: "delete", name: "Delete current note", run: () => app.activePath && app.remove(app.activePath) },
