@@ -52,8 +52,9 @@
     font-size: 10px;
     opacity: 0;
   }
-  .row:hover .x {
-    opacity: 0.6;
+  .row:hover .x,
+  .x:focus-visible {
+    opacity: 0.85;
   }
   .empty {
     color: var(--fv-faint);

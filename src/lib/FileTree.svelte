@@ -1,12 +1,18 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import { api, dirname, join, type Entry } from "./api";
   import { app } from "./store.svelte";
+  import Icon from "./Icon.svelte";
+  import { menuKeys } from "./modal";
+  import { arrowIndex } from "./ui";
 
   const ROW = 26;
   let collapsed = $state(new Set<string>());
   let scrollTop = $state(0);
   let height = $state(600);
-  let menu = $state<{ x: number; y: number; entry: Entry | null } | null>(null);
+  let menu = $state<{ x: number; y: number; entry: Entry | null; from: HTMLElement | null } | null>(null);
+  /** Row that Tab lands on (roving focus: the tree is one Tab stop, arrows move inside it). */
+  let cursor = $state(0);
   let dropTarget = $state<string | null>(null);
 
   /** Flat list of rows not hidden under a collapsed folder (entries arrive depth-first). */
@@ -23,11 +29,37 @@
   // Only render what's on screen: huge vaults stay instant.
   const first = $derived(Math.max(0, Math.floor(scrollTop / ROW) - 10));
   const visible = $derived(rows.slice(first, first + Math.ceil(height / ROW) + 20));
+  const tabStop = $derived(cursor >= first && cursor < first + visible.length ? cursor : first);
 
   function toggle(path: string) {
     const s = new Set(collapsed);
     s.has(path) ? s.delete(path) : s.add(path);
     collapsed = s;
+  }
+
+  let treeEl: HTMLElement;
+  /** Arrow-key tree navigation. Rows are virtualised, so scroll the target in before focusing it. */
+  async function rowKey(ev: KeyboardEvent, i: number) {
+    const e = rows[i].e;
+    if (ev.key === "Enter" || ev.key === " ") {
+      ev.preventDefault();
+      return click(e, ev as unknown as MouseEvent);
+    }
+    let to = arrowIndex(ev.key, i, rows.length, false, "ArrowUp", "ArrowDown");
+    // Right opens a folder, then steps into it; Left closes it, then steps out to the parent.
+    if (ev.key === "ArrowRight" && e.dir && collapsed.has(e.path)) return (ev.preventDefault(), toggle(e.path));
+    if (ev.key === "ArrowRight" && e.dir && rows[i + 1]?.e.path.startsWith(e.path + "/")) to = i + 1;
+    if (ev.key === "ArrowLeft" && e.dir && !collapsed.has(e.path)) return (ev.preventDefault(), toggle(e.path));
+    if (ev.key === "ArrowLeft") to = rows.findIndex((r) => r.e.dir && e.path.startsWith(r.e.path + "/") && r.depth === rows[i].depth - 1);
+    if (to < 0) return;
+    ev.preventDefault();
+    const top = to * ROW;
+    if (top < treeEl.scrollTop) treeEl.scrollTop = top;
+    else if (top + ROW > treeEl.scrollTop + height) treeEl.scrollTop = top + ROW - height;
+    scrollTop = treeEl.scrollTop;
+    cursor = to;
+    await tick();
+    treeEl.querySelector<HTMLElement>(`[data-i="${to}"]`)?.focus();
   }
 
   function click(e: Entry, ev: MouseEvent) {
@@ -56,17 +88,18 @@
 <div class="head">
   <button title="New note" onclick={() => app.newNote("")}>＋ Note</button>
   <button title="New folder" onclick={() => newFolder("")}>＋ Folder</button>
-  <button title="Collapse all" onclick={() => (collapsed = new Set(app.files.filter((f) => f.dir).map((f) => f.path)))}>⇤</button>
+  <button title="Collapse all" aria-label="Collapse all folders" onclick={() => (collapsed = new Set(app.files.filter((f) => f.dir).map((f) => f.path)))}><Icon name="collapse" size={15} /></button>
 </div>
 <div
   class="tree"
+  bind:this={treeEl}
   role="tree"
   tabindex="-1"
   bind:clientHeight={height}
   onscroll={(ev) => (scrollTop = (ev.target as HTMLElement).scrollTop)}
   oncontextmenu={(ev) => {
     ev.preventDefault();
-    menu = { x: ev.clientX, y: ev.clientY, entry: null };
+    menu = { x: ev.clientX, y: ev.clientY, entry: null, from: null };
   }}
   ondragover={(ev) => ev.preventDefault()}
   ondrop={(ev) => drop(ev, "")}
@@ -80,15 +113,20 @@
         role="treeitem"
         aria-selected={e.path === app.activePath}
         aria-expanded={e.dir ? !collapsed.has(e.path) : undefined}
-        tabindex="0"
+        tabindex={first + i === tabStop ? 0 : -1}
+        data-i={first + i}
+        onfocus={() => (cursor = first + i)}
         draggable="true"
         style="top:{(first + i) * ROW}px; padding-left:{10 + depth * 14}px"
         onclick={(ev) => click(e, ev)}
-        onkeydown={(ev) => ev.key === "Enter" && click(e, ev as unknown as MouseEvent)}
+        onkeydown={(ev) => rowKey(ev, first + i)}
         oncontextmenu={(ev) => {
           ev.preventDefault();
           ev.stopPropagation();
-          menu = { x: ev.clientX, y: ev.clientY, entry: e };
+          // Opened from the keyboard (Menu key / Shift+F10): place it at the row.
+          const r = (ev.currentTarget as HTMLElement).getBoundingClientRect();
+          const keyboard = ev.clientX === 0 && ev.clientY === 0;
+          menu = { x: keyboard ? r.left + 24 : ev.clientX, y: keyboard ? r.bottom : ev.clientY, entry: e, from: ev.currentTarget as HTMLElement };
         }}
         ondragstart={(ev) => ev.dataTransfer?.setData("text/fv-path", e.path)}
         ondragover={(ev) => {
@@ -118,7 +156,7 @@
 {#if menu}
   {@const target = menu.entry}
   {@const dir = target ? (target.dir ? target.path : dirname(target.path)) : ""}
-  <div class="menu" style="left:{menu.x}px; top:{menu.y}px" role="menu">
+  <div class="menu" style="left:{menu.x}px; top:{menu.y}px" role="menu" tabindex="-1" use:menuKeys={() => ((menu?.from?.focus()), (menu = null))}>
     <button role="menuitem" onclick={() => app.newNote(dir)}>New note</button>
     <button role="menuitem" onclick={() => newFolder(dir)}>New folder</button>
     {#if target}
@@ -184,7 +222,7 @@
     text-overflow: ellipsis;
   }
   .dim {
-    opacity: 0.6;
+    color: var(--fv-faint);
   }
   .menu {
     position: fixed;

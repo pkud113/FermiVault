@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { basename, dirname, fuzzy } from "./api";
   import { app, type Command } from "./store.svelte";
+  import { modal } from "./modal";
 
   let { commands }: { commands: Command[] } = $props();
   type Item = { label: string; detail?: string; run: (newTab: boolean) => unknown };
@@ -56,8 +57,8 @@
   }
 
   function keydown(e: KeyboardEvent) {
-    if (e.key === "Escape") close();
-    else if (e.key === "ArrowDown") sel = Math.min(sel + 1, items.length - 1);
+    // Escape is handled by the modal action (it also keeps Tab inside the palette).
+    if (e.key === "ArrowDown") sel = Math.min(sel + 1, items.length - 1);
     else if (e.key === "ArrowUp") sel = Math.max(sel - 1, 0);
     else if (e.key === "Enter") {
       if (mode.kind === "prompt") close(q.trim() || null);
@@ -73,21 +74,28 @@
 </script>
 
 <div class="backdrop" role="presentation" onmousedown={(e) => e.target === e.currentTarget && close()}>
-  <div class="palette" role="dialog" aria-label={mode.kind === "prompt" ? mode.title : "Palette"}>
+  <div class="palette" role="dialog" aria-modal="true" aria-label={mode.kind === "prompt" ? mode.title : "Palette"} tabindex="-1" use:modal={() => close()}>
     {#if mode.kind === "prompt"}<div class="title">{mode.title}</div>{/if}
     <input
       bind:this={input}
       bind:value={q}
       onkeydown={keydown}
+      role={mode.kind === "prompt" ? undefined : "combobox"}
+      aria-expanded={mode.kind === "prompt" ? undefined : true}
+      aria-controls={mode.kind === "prompt" ? undefined : "palette-list"}
+      aria-autocomplete={mode.kind === "prompt" ? undefined : "list"}
+      aria-activedescendant={mode.kind !== "prompt" && items.length ? `palette-opt-${sel}` : undefined}
+      aria-label={mode.kind === "prompt" ? mode.title : "Search"}
       spellcheck="false"
       placeholder={mode.kind === "switcher" ? "Find or create a note…" : mode.kind === "commands" ? "Type a command…" : mode.kind === "pick" ? mode.placeholder : ""}
     />
     {#if mode.kind !== "prompt"}
-      <div class="list" bind:this={list} role="listbox">
+      <div class="list" id="palette-list" bind:this={list} role="listbox">
         {#each items as item, i}
           <div
             class="item"
             class:sel={i === sel}
+            id="palette-opt-{i}"
             role="option"
             aria-selected={i === sel}
             tabindex="-1"

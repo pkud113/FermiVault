@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tabKeys } from "./modal";
   import { api, basename, type LinkRef } from "./api";
   import { app } from "./store.svelte";
   import Chat from "./Chat.svelte";
@@ -45,11 +46,12 @@
   const minLevel = $derived(Math.min(...headings.map((h) => h.level)));
 </script>
 
-<div class="tabs">
-  <button class:on={app.right === "backlinks"} onclick={() => (app.right = "backlinks")}>Backlinks</button>
-  <button class:on={app.right === "outline"} onclick={() => (app.right = "outline")}>Outline</button>
-  <button class:on={app.right === "graph"} onclick={() => (app.right = "graph")}>Graph</button>
-  <button class:on={app.right === "chat"} onclick={() => (app.right = "chat")}>Chat</button>
+<div class="tabs" role="tablist" aria-label="Side panel" use:tabKeys>
+  {#each [["backlinks", "Backlinks"], ["outline", "Outline"], ["graph", "Graph"], ["chat", "Chat"]] as const as [id, label]}
+    <button role="tab" aria-selected={app.right === id} tabindex={app.right === id ? 0 : -1} class:on={app.right === id} onclick={() => (app.right = id)}>
+      {label}
+    </button>
+  {/each}
 </div>
 
 <div class="body" class:fill={app.right === "graph" || app.right === "chat"}>

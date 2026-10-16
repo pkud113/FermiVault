@@ -1,10 +1,11 @@
 <script lang="ts">
   import { app } from "./store.svelte";
   import AiSettings from "./AiSettings.svelte";
+  import { modal } from "./modal";
 </script>
 
 <div class="backdrop" role="presentation" onmousedown={(e) => e.target === e.currentTarget && (app.showSettings = false)}>
-  <div class="dialog" role="dialog" aria-label="Settings">
+  <div class="dialog" role="dialog" aria-modal="true" aria-label="Settings" tabindex="-1" use:modal={() => (app.showSettings = false)}>
     <div class="head">
       <h3>Settings</h3>
       <button onclick={() => (app.showSettings = false)} aria-label="Close">✕</button>
