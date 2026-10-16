@@ -2,6 +2,7 @@
 
 **Date:** October 15, 2026  
 **Status:** Preliminary, source-based review. Native visual inspection is still pending.  
+**Resolution (October 15, 2026):** UI-01 to UI-05 implemented in [#6](https://github.com/pkud113/FermiVault/pull/6). The live visual, OS-scaling and screen-reader review listed under *Required live review* has **not** been done yet.  
 **Scope:** Colors, readability, layout, navigation, keyboard access, and implementation feasibility.  
 **Baseline:** Original `main` at `3fecefa7619707dc955e7947aed0ce7dd2265f79`; relevant source rechecked in the local `fix/hardening` checkout at `5135c1be27881bba3b5521ce62df09d04bd1c0f5`.
 
@@ -17,17 +18,19 @@ Retain the lightweight writing workspace and the existing neutral/purple token s
 
 ## Priorities
 
-| ID | Priority | Issue | Evidence level |
-| --- | --- | --- | --- |
-| UI-01 | High | Faint secondary text has insufficient contrast for ordinary text | Token calculation and actual source uses |
-| UI-02 | High | Callout title colors need theme-specific contrast treatment | Source and calculated light-theme combinations |
-| UI-03 | High | Fixed sidebars crowd the editor in narrow windows | Layout calculation; native resize validation pending |
-| UI-04 | Medium | Settings and important controls need clearer discovery | Source-confirmed navigation structure |
-| UI-05 | High | Dialog, tree, tab, and separator keyboard behavior needs completion | Source-confirmed missing handling; live testing pending |
+| ID | Priority | Issue | Evidence level | Status |
+| --- | --- | --- | --- | --- |
+| UI-01 | High | Faint secondary text has insufficient contrast for ordinary text | Token calculation and actual source uses | Fixed in [#6](https://github.com/pkud113/FermiVault/pull/6) |
+| UI-02 | High | Callout title colors need theme-specific contrast treatment | Source and calculated light-theme combinations | Fixed in [#6](https://github.com/pkud113/FermiVault/pull/6) |
+| UI-03 | High | Fixed sidebars crowd the editor in narrow windows | Layout calculation; native resize validation pending | Fixed in [#6](https://github.com/pkud113/FermiVault/pull/6) |
+| UI-04 | Medium | Settings and important controls need clearer discovery | Source-confirmed navigation structure | Fixed in [#6](https://github.com/pkud113/FermiVault/pull/6) |
+| UI-05 | High | Dialog, tree, tab, and separator keyboard behavior needs completion | Source-confirmed missing handling; live testing pending | Fixed in [#6](https://github.com/pkud113/FermiVault/pull/6) |
 
 Priorities represent usability impact and recommended order, not security severity.
 
 ### UI-01 — Improve secondary-text contrast
+
+**Status: fixed in [#6](https://github.com/pkud113/FermiVault/pull/6).** Tokens rechecked on every surface each one is used on (editor, sidebar, hover, selected) in both themes; dark muted text brightened to keep the hierarchy. `tests/ui.test.ts` recomputes each pair from `src/app.css`.
 
 **Locations:** `src/app.css` (`--fv-faint`, `--fv-bg`, `--fv-bg-2`); status bar and shortcut hints in `src/routes/+page.svelte`; settings helper text, search paths/counts, tag counts, graph empty states, and bookmark metadata in their respective components.
 
@@ -46,6 +49,8 @@ These ratios are below the 4.5:1 minimum for normal text when those combinations
 
 ### UI-02 — Give callouts theme-aware semantic colors
 
+**Status: fixed in [#6](https://github.com/pkud113/FermiVault/pull/6).** Titles mix their colour toward the heading colour per theme (6.5:1 or better); labels unchanged. Covered by `tests/ui.test.ts`.
+
 **Locations:** `src/app.css`, especially `.cm-callout`, `.cm-callout-title`, and the tip/warning/danger/info selectors.
 
 Callout types use fixed colors shared by both themes. Titles use the same semantic color as their bar, over a 10% tint. At the default light background, approximate title contrast is:
@@ -63,6 +68,8 @@ These are calculations from declared sRGB colors and alpha compositing, not scre
 
 ### UI-03 — Protect the writing area at small window sizes
 
+**Status: fixed in [#6](https://github.com/pkud113/FermiVault/pull/6).** Sidebars yield to a minimum editor width (380 px, 300 px per split pane); the sidebar opened last keeps its space; preferences return when the window widens; resizing is clamped. Layout rules in `src/lib/ui.ts`, covered by `tests/ui.test.ts`.
+
 **Locations:** `src/routes/+page.svelte` (`leftW = 260`, `rightW = 280`, `resize()`, and `.shell`); `src-tauri/tauri.conf.json` (`minWidth: 640`).
 
 The default sidebars consume 540 CSS pixels. At a roughly 640px client width, the editor receives only about 100px before internal padding. The grid retains both columns and no automatic narrow-layout collapse is present in this source. Multiple split panes divide the remaining space further. Users can manually hide the panels, but that does not establish a usable default at the configured minimum size.
@@ -73,6 +80,8 @@ The default sidebars consume 540 CSS pixels. At a roughly 640px client width, th
 
 ### UI-04 — Improve control discovery without crowding the editor
 
+**Status: fixed in [#6](https://github.com/pkud113/FermiVault/pull/6).** Settings in the always-visible footer and the empty workspace; vault name switches vaults; distinct, labelled sidebar toggles and collapse-all icon.
+
 **Locations:** `src/routes/+page.svelte` command definitions, sidebar switcher, empty workspace, and tab-strip panel toggles; `src/lib/FileTree.svelte`.
 
 Settings is exposed through the command palette and `Ctrl+,`, with no persistent visible Settings entry in the inspected shell. Several actions depend on icon tooltips, shortcuts, or context menus. Left/right panel toggles use the same hamburger glyph, while the file-tree collapse action uses a different text glyph.
@@ -82,6 +91,8 @@ Settings is exposed through the command palette and `Ctrl+,`, with no persistent
 **Acceptance:** A first-time user should find settings, open/create a note, search, switch vaults, and show/hide a panel without memorizing shortcuts. Check visible names, tooltips, keyboard focus, truncation, and selected-state clarity in both themes. Do not judge the overall visual hierarchy until the app is inspected.
 
 ### UI-05 — Complete keyboard interaction and dialog focus
+
+**Status: fixed in [#6](https://github.com/pkud113/FermiVault/pull/6).** Modal focus trap, Escape and focus restore for Settings, Recovery, Connections and the palette (palette is also a combobox); no workspace shortcuts behind them; roving focus with arrows/Home/End for tabs, sidebar views and the file tree; keyboard context menu; keyboard-resizable separators. Index logic covered by `tests/ui.test.ts`.
 
 **Locations:** `src/lib/Settings.svelte`, `Recovery.svelte`, `Connections.svelte`, `Palette.svelte`, `FileTree.svelte`, and `src/routes/+page.svelte`.
 
