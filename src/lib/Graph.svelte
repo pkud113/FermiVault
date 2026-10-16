@@ -61,7 +61,8 @@
     const settings = { ...fa2.inferSettings(g), barnesHutOptimize: g.order > 500 };
     if (fresh && g.order <= 400) fa2.assign(g, { iterations: 250, settings });
     renderer = new Sigma(g, container, {
-      settings: { labelRenderedSizeThreshold: local ? 0 : 7, renderEdgeLabels: false, stagePadding: 24 },
+      // Sizes in screen pixels (sigma 4 defaults to graph units, which makes small vaults' nodes huge).
+      settings: { labelRenderedSizeThreshold: local ? 0 : 7, renderEdgeLabels: false, stagePadding: 24, itemSizesReference: "screen" },
       nodeReducer: (n, d) => {
         const near = !hovered || n === hovered || g.areNeighbors(n, hovered);
         return { ...d, labelColor: text, color: near ? d.color : edge, label: near ? d.label : "" };

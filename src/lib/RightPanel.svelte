@@ -3,7 +3,7 @@
   import { tk } from "./tk";
   import { tabKeys } from "./modal";
   import { api, basename, type LinkRef } from "./api";
-  import { app } from "./store.svelte";
+  import { app, GRAPH } from "./store.svelte";
   import Chat from "./Chat.svelte";
   import Graph from "./Graph.svelte";
   import Properties from "./Properties.svelte";
@@ -60,7 +60,7 @@
 <div class="body" class:fill={app.right === "graph" || app.right === "chat"}>
   {#if app.right === "chat"}
     <Chat />
-  {:else if !app.activePath}
+  {:else if !app.activePath || app.activePath === GRAPH}
     <div class="empty">{t("No note open")}</div>
   {:else if app.right === "backlinks"}
     {#each groups as [path, refs] (path)}
@@ -101,13 +101,13 @@
   .tabs {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
+    gap: 2px;
     padding: 8px;
   }
   .tabs button {
     flex: 1 1 auto;
     font-size: 12px;
-    padding: 5px 4px;
+    padding: 5px 2px;
   }
   .tabs .on {
     background: var(--fv-active);

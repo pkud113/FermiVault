@@ -12,7 +12,7 @@ if (!exe || !out) throw new Error("usage: node scripts/screenshots.mjs <fermivau
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // --- Demo vault -----------------------------------------------------------------------------
-const vault = mkdtempSync(join(tmpdir(), "FermiVault demo-"));
+const vault = join(mkdtempSync(join(tmpdir(), "fv-")), "My notes");
 const notes = {
   "Local-first software.md": `---
 tags: [research, sync]
@@ -109,7 +109,7 @@ owner: Sam
 `,
   "Project board.md": `# Project board
 
-Every note tagged #project, live from their properties.
+Every project, live from its properties. Edit one and this table follows.
 
 \`\`\`table
 from: #project
@@ -218,6 +218,11 @@ const shot = async (name) => {
 const openNote = async (name) => {
   await click(".shell *", name);
   await until(`!!document.querySelector(".cm-content")`, name);
+  // Cursor to the end, so the first lines show rendered rather than as source.
+  await js(`document.querySelector(".cm-content").focus()`);
+  for (const type of ["keyDown", "keyUp"]) {
+    await send("Input.dispatchKeyEvent", { type, key: "End", code: "End", windowsVirtualKeyCode: 35, modifiers: 2 });
+  }
 };
 
 try {

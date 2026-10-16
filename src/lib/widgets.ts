@@ -8,6 +8,7 @@ import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemir
 import { syntaxTree } from "@codemirror/language";
 import { assetUrl, imageTarget, kind, sectionRange, type Table } from "./api";
 import { host, liveTables } from "./host";
+import { body } from "./frontmatter";
 
 export { host };
 
@@ -111,7 +112,7 @@ class EmbedWidget extends WidgetType {
     if (this.depth >= MAX_DEPTH) return wrap; // stop runaway (or circular) transclusion
     host.read(path).then((text) => {
       const r = section ? sectionRange(text, section) : null;
-      const inner = host.nested(r ? text.slice(r[0], r[1]) : text, this.depth + 1);
+      const inner = host.nested(r ? text.slice(r[0], r[1]) : body(text), this.depth + 1);
       (wrap as any).inner = inner;
       wrap.append(inner.dom);
       view.requestMeasure();

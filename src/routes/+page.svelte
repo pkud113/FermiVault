@@ -494,7 +494,7 @@
   .switch button {
     border: none;
     background: none;
-    padding: 5px 7px;
+    padding: 5px;
     display: grid;
     place-items: center;
   }

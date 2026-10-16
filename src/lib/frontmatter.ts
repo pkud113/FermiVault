@@ -20,6 +20,9 @@ function block(text: string): [number, number] | null {
   return null;
 }
 
+/** The note without its properties block, for previews and embeds. */
+export const body = (text: string) => text.slice(block(text)?.[1] ?? 0);
+
 type Entry = Prop & { from: number; to: number };
 
 const unquote = (s: string) => {

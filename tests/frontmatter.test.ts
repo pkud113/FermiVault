@@ -1,7 +1,7 @@
 // Note properties: reading and editing frontmatter. Run with `pnpm test`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { diffChange, readProps, removeProp, setProp } from "../src/lib/frontmatter.ts";
+import { body, diffChange, readProps, removeProp, setProp } from "../src/lib/frontmatter.ts";
 
 const note = `---
 title: "Plan: v2"
@@ -61,4 +61,10 @@ test("edits become one minimal change for the editor", () => {
   const c = diffChange(a, b);
   assert.equal(a.slice(0, c.from) + c.insert + a.slice(c.to), b);
   assert.ok(c.to - c.from < 30, "only the edited line is replaced");
+});
+
+test("body leaves out the properties block", () => {
+  assert.equal(body("---\ntags: [a]\n---\n# Title\n"), "# Title\n");
+  assert.equal(body("# No properties\n"), "# No properties\n");
+  assert.equal(body("---\nunclosed\n"), "---\nunclosed\n");
 });
