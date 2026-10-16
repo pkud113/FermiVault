@@ -121,6 +121,61 @@ pub fn parse(src: &str, text: &str) -> Parsed {
     out
 }
 
+/// Frontmatter properties as (key, value) pairs; a list gives one pair per item. Covers the
+/// flat YAML notes use: `key: value`, `key: [a, b]` and indented `- item` lists, with quotes
+/// and trailing ` # comments`. Nested maps are skipped.
+// ponytail: a YAML subset, not a YAML parser; add one if nested properties ever matter.
+pub fn properties(text: &str) -> Vec<(String, String)> {
+    let end = frontmatter_end(text);
+    let mut out = Vec::new();
+    let mut key: Option<String> = None;
+    for line in text[..end].lines().skip(1) {
+        if line.trim() == "---" || line.trim().is_empty() || line.trim_start().starts_with('#') {
+            continue;
+        }
+        if line.starts_with([' ', '\t']) || line.starts_with("- ") {
+            if let (Some(k), Some(item)) = (&key, line.trim_start().strip_prefix("- ")) {
+                push_value(&mut out, k, item);
+            }
+            continue;
+        }
+        key = None;
+        let Some((k, v)) = line.split_once(':') else { continue };
+        let k = k.trim().trim_matches(['"', '\'']);
+        if k.is_empty() {
+            continue;
+        }
+        let v = strip_comment(v.trim());
+        if let Some(list) = v.strip_prefix('[').and_then(|v| v.strip_suffix(']')) {
+            list.split(',').for_each(|item| push_value(&mut out, k, item));
+        } else if v.is_empty() {
+            key = Some(k.to_string()); // a `- item` list may follow
+        } else {
+            push_value(&mut out, k, v);
+        }
+    }
+    out
+}
+
+fn strip_comment(v: &str) -> &str {
+    if v.starts_with(['"', '\'']) {
+        return v;
+    }
+    v.find(" #").map_or(v, |i| &v[..i]).trim_end()
+}
+
+fn push_value(out: &mut Vec<(String, String)>, key: &str, v: &str) {
+    let v = strip_comment(v.trim());
+    let v = v
+        .strip_prefix('"')
+        .and_then(|s| s.strip_suffix('"'))
+        .or_else(|| v.strip_prefix('\'').and_then(|s| s.strip_suffix('\'')))
+        .unwrap_or(v);
+    if !v.is_empty() {
+        out.push((key.to_string(), v.to_string()));
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct Chunk {
     /// Nearest heading above the chunk ("" before the first heading).
@@ -225,6 +280,27 @@ mod tests {
     fn frontmatter_list_tags() {
         let p = parse("a.md", "---\ntags:\n  - one\n  - two\ntitle: x\n---\nbody #three");
         assert_eq!(p.tags, ["one", "three", "two"]);
+    }
+
+    #[test]
+    fn frontmatter_properties() {
+        let text = "---\ntitle: \"Plan: v2\"\nstatus: active # set by hand\ntags: [a, \"b\"]\naliases:\n  - One\n  - 'Two'\n\
+                    due: 2026-11-01\nempty:\nnested:\n  child: x\n# comment\n---\nbody: not a property\n";
+        let p = properties(text);
+        let pairs: Vec<(&str, &str)> = p.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+        assert_eq!(
+            pairs,
+            [
+                ("title", "Plan: v2"),
+                ("status", "active"),
+                ("tags", "a"),
+                ("tags", "b"),
+                ("aliases", "One"),
+                ("aliases", "Two"),
+                ("due", "2026-11-01")
+            ]
+        );
+        assert!(properties("no frontmatter: here").is_empty());
     }
 
     #[test]

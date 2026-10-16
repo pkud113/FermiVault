@@ -22,6 +22,8 @@ The installer isn't code-signed yet, so Windows SmartScreen may say "Windows pro
 - File recovery: automatic snapshots (every 5 minutes while editing, before every AI-agent change), restore any version
 - Tabs and split panes, quick switcher (`Ctrl+O`), command palette (`Ctrl+P`), full-text search
 - Link-safe rename/move (every `[[link]]` and `[x](note.md)` is rewritten)
+- **Properties** (YAML frontmatter) edited in the right panel, with text, list, date and checkbox fields
+- **Tables of notes**: a ```` ```table ```` block lists notes by tag or folder, filtered and sorted by their properties, live (see *Project board* in `fixtures/test-vault`)
 - Image, PDF, audio and video viewers; file tree with drag-and-drop; trash instead of delete; light/dark themes
 - Live reload when files change on disk (external editors, sync tools, agents)
 
@@ -37,9 +39,24 @@ Heavy renderers (KaTeX, Mermaid, the graph) load only when a note first needs th
 
 AI apps connected over MCP get the same hybrid `search` plus a `related` tool.
 
+## Tables
+
+````markdown
+```table
+from: #project, work/        (tags and/or folders; leave out for all notes)
+where: status != done        (one condition per line: = != < <= > >= contains exists missing)
+where: due < 2026-12-01
+sort: due desc
+columns: file, status, due
+limit: 50
+```
+````
+
+Fields are any property plus `file`, `path`, `folder`, `modified` and `tags`. Numbers compare as numbers, everything else as text, so ISO dates sort correctly. Agents use the same syntax through the MCP `query` tool.
+
 ## MCP tools
 
-`search`, `read_note` (whole note or one section), `list_notes`, `recent_changes`, `links`, `related`, `tags`, `create_note`, `edit_note` (`append` / `str_replace` / `replace_section` / `replace`), `rename_note`.
+`search`, `read_note` (whole note or one section), `list_notes`, `recent_changes`, `links`, `related`, `query` (notes by properties and tags, as a table), `tags`, `create_note`, `edit_note` (`append` / `str_replace` / `replace_section` / `replace`), `rename_note`.
 
 Run it manually:
 

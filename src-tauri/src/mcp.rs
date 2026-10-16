@@ -36,6 +36,8 @@ fn tools() -> Value {
          "inputSchema": s(json!({"path": {"type": "string"}}), &["path"])},
         {"name": "related", "description": "Notes most similar in meaning to a note (needs semantic search enabled in FermiVault). Use to find link candidates.",
          "inputSchema": s(json!({"path": {"type": "string"}, "limit": {"type": "integer", "default": 10}}), &["path"])},
+        {"name": "query", "description": "Find notes by their frontmatter properties and tags, as a table. One clause per line: `from: #tag, folder/` (any match), `where: <field> <op> <value>` (repeatable, all must hold; ops = != < <= > >= contains exists missing), `sort: <field> [desc]`, `columns: a, b`, `limit: N`. Fields: any property plus file, path, folder, modified, tags. Example: \"from: #project\nwhere: status != done\nsort: due\ncolumns: status, due\".",
+         "inputSchema": s(json!({"query": {"type": "string"}}), &["query"])},
         {"name": "tags", "description": "Without `tag`: all tags with counts. With `tag`: notes having it (nested tags included).",
          "inputSchema": s(json!({"tag": {"type": "string"}}), &[])},
         {"name": "create_note", "description": "Create a new note. Fails if it already exists.",
@@ -182,6 +184,10 @@ impl Server {
                     return Ok("No related notes (semantic search may be off in FermiVault settings).".into());
                 }
                 Ok(rel.iter().map(|(p, s)| format!("- {p} ({s:.2})")).collect::<Vec<_>>().join("\n"))
+            }
+            "query" => {
+                let q = crate::query::parse(arg(a, "query")?)?;
+                Ok(crate::query::to_markdown(&self.ix.query(&q)?))
             }
             "tags" => match a.get("tag").and_then(Value::as_str) {
                 Some(t) => Ok(self.ix.tagged(t)?.join("\n")),
@@ -409,7 +415,7 @@ mod tests {
                 .is_none()
         );
         let list = s.handle(&json!({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})).unwrap();
-        assert_eq!(list["result"]["tools"].as_array().unwrap().len(), 10);
+        assert_eq!(list["result"]["tools"].as_array().unwrap().len(), 11);
 
         assert_eq!(
             call(&mut s, "read_note", json!({"path": "home", "section": "Tasks"})).0,
@@ -425,6 +431,25 @@ mod tests {
             "no overwrite"
         );
         assert!(call(&mut s, "search", json!({"query": "links"})).0.contains("Idea.md"));
+        call(
+            &mut s,
+            "create_note",
+            json!({"path": "Task", "content": "---
+status: open
+---
+"}),
+        );
+        let table = call(
+            &mut s,
+            "query",
+            json!({"query": "where: status = open
+columns: status"}),
+        );
+        assert!(table.0.contains("| Task.md | open |"), "{}", table.0);
+        assert!(
+            call(&mut s, "query", json!({"query": "where: status"})).1,
+            "bad query is an error, not a crash"
+        );
         assert!(
             call(&mut s, "links", json!({"path": "Home.md"}))
                 .0

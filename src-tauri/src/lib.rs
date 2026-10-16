@@ -4,6 +4,7 @@ pub mod embed;
 pub mod index;
 pub mod mcp;
 pub mod parse;
+pub mod query;
 pub mod semantic;
 pub mod vault;
 
@@ -262,6 +263,13 @@ async fn ai_cancel(id: String) {
     CANCELLED.lock().unwrap().get_or_insert_default().insert(id);
 }
 
+/// Runs a ```table``` block / query (see `query.rs`).
+#[tauri::command]
+async fn query(state: State<'_, AppState>, text: String) -> Res<query::Table> {
+    let q = query::parse(&text)?;
+    state.get()?.ix.lock().unwrap().query(&q)
+}
+
 #[tauri::command]
 async fn backlinks(state: State<'_, AppState>, path: String) -> Res<Vec<LinkRef>> {
     state.get()?.ix.lock().unwrap().backlinks(&path)
@@ -348,6 +356,7 @@ pub fn run() {
             rename_path,
             trash_path,
             search,
+            query,
             backlinks,
             resolve_link,
             graph,
