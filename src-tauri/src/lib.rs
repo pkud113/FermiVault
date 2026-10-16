@@ -2,6 +2,7 @@ pub mod ai;
 pub mod clip;
 pub mod connect;
 pub mod embed;
+pub mod git;
 pub mod index;
 pub mod mcp;
 pub mod parse;
@@ -221,6 +222,35 @@ async fn embed_install(app: tauri::AppHandle, state: State<'_, AppState>) -> Res
     Ok(())
 }
 
+/// Git sync (see `git.rs`). Git runs on a blocking thread: pushes and fetches can take a while.
+#[tauri::command]
+async fn git_status(state: State<'_, AppState>) -> Res<git::Status> {
+    let v = state.get()?.vault.clone();
+    tauri::async_runtime::spawn_blocking(move || git::status(&v)).await.map_err(err)
+}
+
+#[tauri::command]
+async fn git_init(state: State<'_, AppState>) -> Res<()> {
+    let v = state.get()?.vault.clone();
+    tauri::async_runtime::spawn_blocking(move || git::init(&v)).await.map_err(err)?
+}
+
+#[tauri::command]
+async fn git_set_remote(state: State<'_, AppState>, url: String) -> Res<()> {
+    let v = state.get()?.vault.clone();
+    tauri::async_runtime::spawn_blocking(move || git::set_remote(&v, &url))
+        .await
+        .map_err(err)?
+}
+
+#[tauri::command]
+async fn git_sync(state: State<'_, AppState>, interactive: bool) -> Res<git::Synced> {
+    let v = state.get()?.vault.clone();
+    tauri::async_runtime::spawn_blocking(move || git::sync(&v, interactive))
+        .await
+        .map_err(err)?
+}
+
 /// Downloads a page for the web clipper (see `clip.rs`).
 #[tauri::command]
 async fn fetch_page(url: String) -> Res<clip::Page> {
@@ -379,6 +409,10 @@ pub fn run() {
             embed_status,
             embed_install,
             fetch_page,
+            git_status,
+            git_init,
+            git_set_remote,
+            git_sync,
             ai_detect,
             ai_models,
             ai_set_key,

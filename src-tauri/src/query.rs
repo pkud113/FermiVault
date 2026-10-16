@@ -184,7 +184,7 @@ fn holds(op: Op, values: &[String], want: &str) -> bool {
 }
 
 /// `YYYY-MM-DD HH:MM` (UTC) from unix ms, without a date library.
-fn format_ms(ms: i64) -> String {
+pub(crate) fn format_ms(ms: i64) -> String {
     let (days, secs) = (ms.div_euclid(86_400_000), ms.rem_euclid(86_400_000) / 1000);
     // Howard Hinnant's civil-from-days.
     let z = days + 719_468;

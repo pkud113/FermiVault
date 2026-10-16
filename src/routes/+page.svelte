@@ -64,6 +64,7 @@
     { id: "new", name: "New note", keys: "Ctrl+N", run: () => app.newNote(dirname(app.activePath ?? "")) },
     { id: "new-canvas", name: "New canvas", run: () => app.newCanvas(dirname(app.activePath ?? "")) },
     { id: "clip", name: "Clip web page as a note…", run: clipPage },
+    { id: "sync", name: "Git: Sync vault now", run: () => app.syncNow() },
     { id: "search", name: "Search vault", keys: "Ctrl+Shift+F", run: () => (app.reveal("left"), (app.left = "search")) },
     { id: "rename", name: "Rename current note", keys: "F2", run: () => app.activePath && app.rename(app.activePath) },
     { id: "delete", name: "Delete current note", run: () => app.activePath && app.remove(app.activePath) },
@@ -135,6 +136,24 @@
   $effect(() => {
     document.documentElement.style.setProperty("--fv-font-size", `${app.settings.fontSize}px`);
   });
+  // Git auto-sync, if turned on for this vault (Settings → Sync).
+  $effect(() => {
+    const minutes = app.root ? (app.config.gitAutoSync ?? 0) : 0;
+    if (!minutes) return;
+    const t = setInterval(() => app.syncNow(true), minutes * 60_000);
+    return () => clearInterval(t);
+  });
+  /** "3 min ago" for the footer. */
+  let now = $state(Date.now());
+  $effect(() => {
+    const t = setInterval(() => (now = Date.now()), 30_000);
+    return () => clearInterval(t);
+  });
+  const ago = (t: number) => {
+    const m = Math.round((now - t) / 60_000);
+    return m < 1 ? "just now" : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`;
+  };
+
   // Tables in notes show live results: re-run them when files change.
   $effect(() => {
     app.version;
@@ -314,6 +333,11 @@
       <button class="mode gear" title="Settings (Ctrl+,)" aria-label="Settings" onclick={() => (app.showSettings = true)}><Icon name="settings" size={14} /></button>
       <span class="path">{app.activePath ?? ""}</span>
       <span class="spacer"></span>
+      {#if app.sync.busy || app.sync.last || app.sync.error || app.config.gitAutoSync}
+        <button class="mode" class:bad={!!app.sync.error} title={app.sync.error ?? "Sync with Git now"} onclick={() => app.syncNow()}>
+          {app.sync.busy ? "Syncing…" : app.sync.error ? "Sync failed" : app.sync.last ? `Synced ${ago(app.sync.last)}` : "Sync"}
+        </button>
+      {/if}
       {#if ai.busy}
         <span class="busy">{ai.busy.label}…</span>
         <button class="mode" onclick={() => ai.stop()}>Stop</button>
@@ -582,6 +606,9 @@
   }
   .mode:hover {
     color: var(--fv-text);
+  }
+  .mode.bad {
+    color: var(--fv-danger);
   }
   .gear {
     display: grid;

@@ -6,13 +6,15 @@ export type Hit = { path: string; snippet: string };
 export type LinkRef = { path: string; line: number; context: string };
 export type Snapshot = { id: string; time: number; size: number };
 export type Graph = { nodes: string[]; edges: [string, string][] };
-export type VaultConfig = { bookmarks?: string[]; dailyFolder?: string; templatesFolder?: string; dailyTemplate?: string; clipFolder?: string };
+export type VaultConfig = { bookmarks?: string[]; dailyFolder?: string; templatesFolder?: string; dailyTemplate?: string; clipFolder?: string; gitAutoSync?: number };
 export type ChunkRef = { path: string; heading: string; line: number; text: string };
 export type EmbedStatus = { installed: boolean; running: boolean; pending: number; total: number; model: string };
 export type Endpoint = { name: string; base_url: string; models: string[] };
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 /** Result of a ```table``` query (see src-tauri/src/query.rs). */
 export type Table = { columns: string[]; rows: { path: string; cells: string[] }[]; total: number };
+export type GitStatus = { git: boolean; repo: boolean; branch: string | null; remote: string | null; changes: number };
+export type GitSynced = { committed: number; pulled: boolean; pushed: boolean; conflicts: string[] };
 export type AiApp = { id: string; name: string; file: string; detected: boolean; connected: boolean; vault: string | null };
 
 export const api = {
@@ -29,6 +31,11 @@ export const api = {
   trash: (path: string) => invoke<void>("trash_path", { path }),
   search: (query: string) => invoke<Hit[]>("search", { query }),
   query: (text: string) => invoke<Table>("query", { text }),
+  gitStatus: () => invoke<GitStatus>("git_status"),
+  gitInit: () => invoke<void>("git_init"),
+  gitSetRemote: (url: string) => invoke<void>("git_set_remote", { url }),
+  /** `interactive: false` for background syncs: never opens a sign-in window. */
+  gitSync: (interactive: boolean) => invoke<GitSynced>("git_sync", { interactive }),
   fetchPage: (url: string) => invoke<{ url: string; html: string }>("fetch_page", { url }),
   backlinks: (path: string) => invoke<LinkRef[]>("backlinks", { path }),
   resolve: (target: string) => invoke<string | null>("resolve_link", { target }),

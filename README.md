@@ -27,6 +27,7 @@ The installer isn't code-signed yet, so Windows SmartScreen may say "Windows pro
 - **Tables of notes**: a ```` ```table ```` block lists notes by tag or folder, filtered and sorted by their properties, live (see *Project board* in `fixtures/test-vault`)
 - **Canvas**: infinite boards of text cards, notes, images, links and groups with arrows, stored as open [JSON Canvas](https://jsoncanvas.org) `.canvas` files (see *Planning board* in `fixtures/test-vault`)
 - **Web clipper**: *Clip web page as a note* saves a page's article as Markdown (using [defuddle](https://github.com/kepano/defuddle)) with its title, author, date and source as properties, in a `Clippings` folder you can change in Settings
+- **Git sync** (Settings → Sync): version history and sync through any Git host, by hand or every 5/15/60 minutes, using your installed `git`. If a note changed on both sides, your version stays and the other is saved next to it as a `(conflict …)` copy
 - Image, PDF, audio and video viewers; file tree with drag-and-drop; trash instead of delete; light/dark themes
 - Live reload when files change on disk (external editors, sync tools, agents)
 
