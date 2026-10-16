@@ -353,6 +353,40 @@ mod tests {
         }
     }
 
+    /// One agent edits while another renames the note: every edit that reports success is in
+    /// the renamed note, the rest fail loudly, and the old path is never recreated.
+    #[test]
+    fn rename_during_edits_loses_nothing() {
+        let d = tempfile::tempdir().unwrap();
+        let v = Vault::new(d.path()).unwrap();
+        v.write("Doc.md", "start\n").unwrap();
+        let (mut editor, mut renamer) = (Server::new(v.clone()).unwrap(), Server::new(v.clone()).unwrap());
+        let barrier = std::sync::Barrier::new(2);
+        let ok: Vec<String> = std::thread::scope(|s| {
+            let edits = s.spawn(|| {
+                barrier.wait();
+                (0..40)
+                    .map(|i| format!("e{i}\n"))
+                    .filter(|line| {
+                        !call(
+                            &mut editor,
+                            "edit_note",
+                            json!({"path": "Doc.md", "mode": "append", "content": line}),
+                        )
+                        .1
+                    })
+                    .collect()
+            });
+            barrier.wait();
+            std::thread::sleep(std::time::Duration::from_millis(5));
+            assert!(!call(&mut renamer, "rename_note", json!({"from": "Doc", "to": "Moved"})).1);
+            edits.join().unwrap()
+        });
+        let text = v.read("Moved.md").unwrap();
+        assert!(ok.iter().all(|line| text.contains(line.as_str())), "a reported edit went missing");
+        assert!(v.read("Doc.md").is_err(), "the old path must not come back");
+    }
+
     #[test]
     fn protocol_and_tools() {
         let d = tempfile::tempdir().unwrap();
