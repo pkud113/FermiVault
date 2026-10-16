@@ -82,6 +82,8 @@ class App {
   /** Bumped whenever files change on disk; panels re-query on change. */
   version = $state(0);
   error = $state<string | null>(null);
+  /** Git sync state, for the footer and Settings. */
+  sync = $state<{ busy: boolean; last?: number; error?: string }>({ busy: false });
   /** Pending cursor jump, consumed by the editor showing that note. */
   jump = $state<{ path: string; line: number } | null>(null);
   /** Live editor per pane, for commands like outline jump. */
@@ -266,6 +268,24 @@ class App {
     this.panes.forEach((p, pi) => {
       for (let ti = p.tabs.length - 1; ti >= 0; ti--) if (p.tabs[ti] === path || p.tabs[ti].startsWith(path + "/")) this.closeTab(pi, ti);
     });
+  }
+
+  /** Commits, pulls and pushes the vault with Git. `quiet`: report failures in the footer only (auto-sync). */
+  async syncNow(quiet = false) {
+    if (this.sync.busy || !this.root) return;
+    this.sync = { ...this.sync, busy: true, error: undefined };
+    try {
+      if (!(await this.flush())) throw new Error("some notes couldn't be saved first");
+      const r = await api.gitSync(!quiet);
+      this.sync = { busy: false, last: Date.now() };
+      if (r.conflicts.length) {
+        this.error = `Synced. ${r.conflicts.length} file(s) changed on both sides: your version is kept and the other is saved next to it as “(conflict …)”.`;
+      }
+      if (r.pulled || r.conflicts.length) await this.refreshFiles();
+    } catch (e) {
+      this.sync = { busy: false, last: this.sync.last, error: String(e) };
+      if (!quiet) this.error = `Sync failed: ${e}`;
+    }
   }
 
   /** Web clipper: saves the article at `url` as a note in the clippings folder and opens it. */
