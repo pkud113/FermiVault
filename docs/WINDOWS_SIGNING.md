@@ -37,7 +37,7 @@ Local development and the performance-budget builds do not use Azure signing.
    repository's OIDC configuration changes.
 
 4. Grant that application's service principal the **Artifact Signing Certificate
-   Profile Signer** role on the Public Trust certificate profile. Do not grant
+   Profile Signer** role on FermiVault's Artifact Signing account. Do not grant
    subscription Owner, Contributor, identity-validation, or profile-management
    permissions to the release application. No client secret is needed.
 
@@ -61,6 +61,11 @@ Set these environment **variables** (Settings → Environments → windows-signi
 | `AZURE_SIGNING_ENDPOINT` | Account endpoint, for example `https://eus.codesigning.azure.net` for East US |
 | `AZURE_SIGNING_ACCOUNT` | Artifact Signing account name |
 | `AZURE_SIGNING_CERTIFICATE_PROFILE` | Public Trust certificate profile name |
+
+For the configured FermiVault deployment, the account is `fermivault-signing`,
+the endpoint is `https://eus.codesigning.azure.net`, and the Public Trust profile
+name is `fermivault-release`. The profile cannot be created until Microsoft's
+publisher identity validation succeeds.
 
 These are resource identifiers, not passwords. Authentication uses a short-lived
 GitHub OIDC token exchanged for Azure access. Private signing keys stay in Azure.
