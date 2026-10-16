@@ -49,8 +49,9 @@ describe the identity validation and federation steps.
 
 Create a repository environment named `windows-signing`. Under **Deployment
 branches and tags**, choose **Selected branches and tags** and add a **Tag** rule
-for `v*`. Do not allow arbitrary branches to use this environment. Limit who can
-push release tags; a release workflow can request the signing identity.
+for `v*` and a **Branch** rule for `main`, which runs manual rebuilds. Do not allow
+arbitrary branches to use this environment. Limit who can push release tags or
+change `main`; a release workflow can request the signing identity.
 
 Set these environment **variables** (Settings → Environments → windows-signing):
 
@@ -78,6 +79,14 @@ Push a version tag as described in CONTRIBUTING.md. The Release workflow builds
 Windows installers into the draft release, using a temporary Tauri config for
 signing. It fails if configuration, authentication, signing, timestamping, or
 signature verification fails; it does not fall back to unsigned installers.
+
+To rebuild an already published version, run **Actions → Release → Run workflow**
+on `main` and enter its existing tag, such as `v0.2.0`. This builds only Windows,
+checks out that tag's application source, and uses the signing hook from the
+workflow revision. It saves the signed installers as a workflow artifact named
+`signed-windows-v0.2.0` for verification. A manual rebuild does not publish or
+replace GitHub release assets. Once verified, the maintainers can upload those
+installers to the corresponding release.
 
 Before publishing the draft, download its Windows installers and inspect each:
 

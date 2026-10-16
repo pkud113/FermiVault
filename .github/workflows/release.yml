@@ -4,12 +4,20 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      sourceTag:
+        description: Existing release tag to rebuild as signed Windows installers
+        required: true
+        default: v0.2.0
+        type: string
 
 permissions:
   contents: write
 
 jobs:
   build:
+    if: github.event_name == 'push'
     name: Build (${{ matrix.os }})
     strategy:
       fail-fast: false
@@ -77,6 +85,28 @@ jobs:
               throw "Set $name in the windows-signing GitHub environment before releasing. See docs/WINDOWS_SIGNING.md."
             }
           }
+      - name: Preserve signing hook for rebuilding an existing release
+        shell: pwsh
+        env:
+          SOURCE_TAG: ${{ inputs.sourceTag }}
+        run: |
+          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch' -and $env:SOURCE_TAG -notmatch '^v\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') {
+            throw 'Choose an existing version tag, for example v0.2.0.'
+          }
+          Copy-Item -LiteralPath (Join-Path $env:GITHUB_WORKSPACE 'scripts/sign-windows.ps1') -Destination (Join-Path $env:RUNNER_TEMP 'sign-windows.ps1')
+      - name: Check out the existing release
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.sourceTag }}
+      - name: Check release version
+        if: github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        env:
+          SOURCE_TAG: ${{ inputs.sourceTag }}
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ("v$version" -ne $env:SOURCE_TAG) { throw 'The source tag must match the application version.' }
       - uses: pnpm/action-setup@v4
         with:
           version: 12
@@ -99,7 +129,7 @@ jobs:
         shell: pwsh
         run: |
           Install-Module ArtifactSigning -RequiredVersion 0.1.20 -Scope CurrentUser -Repository PSGallery -Force
-          $script = Join-Path $env:GITHUB_WORKSPACE 'scripts/sign-windows.ps1'
+          $script = Join-Path $env:RUNNER_TEMP 'sign-windows.ps1'
           $config = @{
             bundle = @{
               windows = @{
@@ -115,8 +145,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: FermiVault ${{ github.ref_name }}
+          tagName: ${{ github.event_name == 'push' && github.ref_name || '' }}
+          releaseName: ${{ github.event_name == 'push' && format('FermiVault {0}', github.ref_name) || '' }}
           releaseBody: Release notes are added before this draft is published.
           releaseDraft: true
           args: --config "${{ runner.temp }}/windows-signing.json"
+      - name: Save signed Windows installers for verification
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: signed-windows-${{ inputs.sourceTag }}
+          if-no-files-found: error
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/msi/*.msi
