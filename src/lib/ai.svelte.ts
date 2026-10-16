@@ -5,7 +5,6 @@
 import { t } from "./i18n.svelte";
 import { tk } from "./tk";
 import { api, streamChat, type ChatMessage, type ChunkRef } from "./api";
-import { begin, finish, step } from "./inline";
 import { app } from "./store.svelte";
 
 class AI {
@@ -61,6 +60,7 @@ export async function inlineAI(kind: InlineKind) {
   const sel = s.selection.main;
   const text = kind === "continue" ? s.sliceDoc(Math.max(0, sel.head - 4000), sel.head) : s.sliceDoc(sel.from, sel.to);
   if (!text.trim()) return void (app.error = kind === "continue" ? t("Write something first.") : t("Select some text first."));
+  const { begin, finish, step } = await import("./inline"); // with the editor, not at startup
 
   const at = kind === "continue" ? sel.head : sel.to;
   const original = spec.replace ? text : "";

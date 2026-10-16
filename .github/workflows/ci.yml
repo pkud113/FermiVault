@@ -39,6 +39,7 @@ jobs:
       - run: pnpm check
       - run: pnpm test
       - run: pnpm build
+      - run: node scripts/startup-size.mjs
       - run: cargo clippy --all-targets -- -D warnings
         working-directory: src-tauri
       - run: cargo test

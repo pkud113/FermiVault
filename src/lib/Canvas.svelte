@@ -7,7 +7,8 @@
   import { api, assetUrl, basename, kind } from "./api";
   import { closeDocs, renameDocs, saveDoc, type Doc } from "./docs";
   import { app, type Saver } from "./store.svelte";
-  import { host } from "./widgets";
+  import { host } from "./host";
+  import "./editor"; // sets host.nested, the Markdown preview cards use
   import {
     PRESETS,
     anchor,

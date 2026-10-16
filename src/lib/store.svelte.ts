@@ -5,7 +5,7 @@ import { ask } from "@tauri-apps/plugin-dialog";
 import { api, basename, dirname, fillTemplate, join, type Entry, type VaultConfig } from "./api";
 import { moved, serial, type Doc } from "./docs";
 import { serializeCanvas } from "./canvas";
-import { host } from "./widgets";
+import { host } from "./host";
 
 export type Settings = {
   theme: "system" | "light" | "dark";

@@ -153,10 +153,8 @@ mkdirSync(cfg, { recursive: true });
 writeFileSync(join(cfg, "state.json"), JSON.stringify({ vault }));
 
 // --- Drive the app ---------------------------------------------------------------------------
-const app = spawn(exe, [], {
-  env: { ...process.env, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: "--remote-debugging-port=9222" },
-  stdio: "ignore",
-});
+// Built with `additionalBrowserArgs: --remote-debugging-port=9222` (see screenshots.yml).
+const app = spawn(exe, [], { stdio: "ignore" });
 
 let target, last;
 for (let i = 0; i < 120 && !target; i++) {

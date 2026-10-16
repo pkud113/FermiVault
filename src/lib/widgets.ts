@@ -7,21 +7,9 @@ import { Facet, StateField, type EditorState } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
 import { assetUrl, imageTarget, kind, sectionRange, type Table } from "./api";
+import { host, liveTables } from "./host";
 
-/** App services the widgets need; filled in by the app at startup. */
-export const host = {
-  root: () => "",
-  files: (): string[] => [],
-  read: async (_path: string) => "",
-  open: (_path: string, _newTab: boolean) => {},
-  dark: () => false,
-  remoteImages: () => false,
-  query: async (_text: string): Promise<Table> => ({ columns: [], rows: [], total: 0 }),
-  /** Read-only live-preview editor for transclusions (set by editor.ts to avoid an import cycle). */
-  nested: (_doc: string, _depth: number): EditorView => {
-    throw new Error("nested editor not configured");
-  },
-};
+export { host };
 
 /** How deep inside transclusions this editor is (0 = a normal tab). */
 export const embedDepth = Facet.define<number, number>({ combine: (v) => v[0] ?? 0 });
@@ -189,13 +177,6 @@ class MermaidWidget extends WidgetType {
     });
     return el;
   }
-}
-
-const liveTables = new Set<() => void>();
-
-/** Re-runs every table on screen; the app calls this when files change. */
-export function refreshTables() {
-  for (const run of liveTables) run();
 }
 
 const byValue = (a: string, b: string) => {
