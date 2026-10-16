@@ -91,6 +91,7 @@
     { id: "table", name: "Insert table of notes (by properties)", run: insertTable },
     { id: "left", name: "Toggle left sidebar", run: () => app.toggleSide("left", lw > 0) },
     { id: "right", name: "Toggle right sidebar", run: () => app.toggleSide("right", rw > 0) },
+    { id: "vim", name: "Toggle Vim key bindings", run: () => (app.settings.vim = !app.settings.vim) },
     { id: "theme", name: "Toggle dark mode", run: () => (app.settings.theme = dark ? "light" : "dark") },
     { id: "settings", name: "Settings", keys: "Ctrl+,", run: () => (app.showSettings = true) },
     { id: "vault", name: "Open another vault…", run: chooseVault },

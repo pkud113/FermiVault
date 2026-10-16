@@ -31,6 +31,10 @@
       <input type="checkbox" bind:checked={app.settings.readableWidth} />
     </label>
     <label>
+      <span>Vim key bindings <small>Normal, insert and visual modes; <code>:w</code> saves</small></span>
+      <input type="checkbox" bind:checked={app.settings.vim} />
+    </label>
+    <label>
       <span>Load web images automatically <small>Off: images from the web wait for a click, so opening a note never contacts other servers</small></span>
       <input type="checkbox" bind:checked={app.settings.remoteImages} />
     </label>

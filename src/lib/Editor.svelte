@@ -3,7 +3,8 @@
   import { EditorView } from "@codemirror/view";
   import type { EditorState, Transaction, TransactionSpec } from "@codemirror/state";
   import { openUrl } from "@tauri-apps/plugin-opener";
-  import { createState, modeExtension, previewMode, type LinkHandler } from "./editor";
+  import { createState, loadVim, modeExtension, previewMode, vimMode, type LinkHandler } from "./editor";
+  import type { Extension } from "@codemirror/state";
   import { api, dirname } from "./api";
   import { PaneDocs, saveDoc, type Doc } from "./docs";
   import { app, type EditorHandle } from "./store.svelte";
@@ -13,6 +14,8 @@
   let host: HTMLDivElement;
   let view: EditorView;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  /** Vim bindings once loaded and enabled; applied to every note this pane shows. */
+  let vim: Extension = [];
   let destroyed = false;
 
   const text = (s: EditorState) => s.doc.toString();
@@ -119,7 +122,7 @@
     }
     if (docs.doc !== r.doc) return;
     view.setState(r.doc.state);
-    view.dispatch({ effects: previewMode.reconfigure(modeExtension(app.settings.livePreview)) });
+    view.dispatch({ effects: [previewMode.reconfigure(modeExtension(app.settings.livePreview)), vimMode.reconfigure(vim)] });
     publish();
     if (app.focus === pane) view.focus();
     applyJump();
@@ -179,6 +182,15 @@
   $effect(() => {
     const live = app.settings.livePreview;
     view?.dispatch({ effects: previewMode.reconfigure(modeExtension(live)) });
+  });
+  $effect(() => {
+    const on = app.settings.vim;
+    if (!view) return;
+    (on ? loadVim(() => app.flush()) : Promise.resolve([])).then((ext) => {
+      if (app.settings.vim !== on) return; // toggled again while loading
+      vim = ext;
+      view.dispatch({ effects: vimMode.reconfigure(vim) });
+    });
   });
   $effect(() => {
     if (app.focus === pane && view) publish();

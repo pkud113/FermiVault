@@ -20,6 +20,7 @@ The installer isn't code-signed yet, so Windows SmartScreen may say "Windows pro
 - Graph view (global, `Alt+G`, and per-note local graph), tags pane, backlinks, outline
 - Daily notes (`Ctrl+Shift+D`), templates with `{{title}}`/`{{date}}`/`{{time}}` (`Ctrl+Shift+T`), bookmarks
 - File recovery: automatic snapshots (every 5 minutes while editing, before every AI-agent change), restore any version
+- Vim key bindings (Settings, or "Toggle Vim key bindings"), loaded only when turned on
 - Tabs and split panes, quick switcher (`Ctrl+O`), command palette (`Ctrl+P`), full-text search
 - Link-safe rename/move (every `[[link]]` and `[x](note.md)` is rewritten)
 - **Properties** (YAML frontmatter) edited in the right panel, with text, list, date and checkbox fields
