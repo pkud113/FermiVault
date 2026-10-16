@@ -30,6 +30,7 @@ toml_edit = "0.25.17"
 tauri-plugin-dialog = "2"
 model2vec-rs = { version = "0.3.0", default-features = false, features = ["fancy-regex", "local-only"] }
 ureq = { version = "3.4.2", features = ["json"] }
+sha2 = "0.10"
 keyring = "4.2.0"
 
 

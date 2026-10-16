@@ -29,6 +29,10 @@
       <span>Readable line width <small>Limit text to a comfortable column</small></span>
       <input type="checkbox" bind:checked={app.settings.readableWidth} />
     </label>
+    <label>
+      <span>Load web images automatically <small>Off: images from the web wait for a click, so opening a note never contacts other servers</small></span>
+      <input type="checkbox" bind:checked={app.settings.remoteImages} />
+    </label>
     <AiSettings />
     <h4>This vault</h4>
     <label>
