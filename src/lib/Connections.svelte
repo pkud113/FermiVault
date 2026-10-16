@@ -1,6 +1,7 @@
 <script lang="ts">
   import { api, type AiApp } from "./api";
   import { app } from "./store.svelte";
+  import { modal } from "./modal";
 
   let apps = $state<AiApp[]>([]);
   let confirm = $state<{ app: AiApp; preview: string } | null>(null);
@@ -59,7 +60,7 @@
 
 {#if confirm}
   <div class="backdrop" role="presentation" onmousedown={(e) => e.target === e.currentTarget && (confirm = null)}>
-    <div class="dialog" role="dialog" aria-label="Confirm connection">
+    <div class="dialog" role="dialog" aria-modal="true" aria-label="Confirm connection" tabindex="-1" use:modal={() => (confirm = null)}>
       <h3>Connect {confirm.app.name}?</h3>
       <p>FermiVault will add this entry to the file below. Other settings are kept, and the original is saved next to it as <code>.fermivault-backup</code>.</p>
       <pre>{confirm.preview}</pre>
@@ -97,7 +98,7 @@
     border-radius: 8px;
   }
   .app.off {
-    opacity: 0.55;
+    color: var(--fv-muted);
   }
   .info {
     min-width: 0;

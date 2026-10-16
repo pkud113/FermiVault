@@ -65,6 +65,8 @@ class App {
   recovery = $state<string | null>(null);
   showLeft = $state(true);
   showRight = $state(true);
+  /** Which sidebar keeps its space when the window is too narrow for both: the one opened last. */
+  firstSide = $state<"left" | "right">("left");
   palette = $state<PaletteMode | null>(null);
   showSettings = $state(false);
   settings = $state<Settings>(loadSettings());
@@ -90,6 +92,20 @@ class App {
     try {
       localStorage.setItem("fv-settings", JSON.stringify(this.settings));
     } catch {}
+  }
+
+  /** Shows a sidebar, giving it priority if the window is too narrow for both. */
+  reveal(side: "left" | "right") {
+    if (side === "left") this.showLeft = true;
+    else this.showRight = true;
+    this.firstSide = side;
+  }
+
+  /** Sidebar toggle. `visible` is whether it's on screen now (it may be set to show but hidden for lack of room). */
+  toggleSide(side: "left" | "right", visible: boolean) {
+    if (!visible) return this.reveal(side);
+    if (side === "left") this.showLeft = false;
+    else this.showRight = false;
   }
 
   /** The editor of the focused pane, if it shows a note. */

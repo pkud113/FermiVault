@@ -2,6 +2,7 @@
   import { api, basename, type Snapshot } from "./api";
   import { serial } from "./docs";
   import { app } from "./store.svelte";
+  import { modal } from "./modal";
 
   const path = app.recovery!;
   let snaps = $state<Snapshot[]>([]);
@@ -42,7 +43,7 @@
 </script>
 
 <div class="backdrop" role="presentation" onmousedown={(e) => e.target === e.currentTarget && (app.recovery = null)}>
-  <div class="dialog" role="dialog" aria-label="File recovery">
+  <div class="dialog" role="dialog" aria-modal="true" aria-label="File recovery" tabindex="-1" use:modal={() => (app.recovery = null)}>
     <div class="head">
       <h3>File recovery · {basename(path)}</h3>
       <button onclick={() => (app.recovery = null)} aria-label="Close">✕</button>
