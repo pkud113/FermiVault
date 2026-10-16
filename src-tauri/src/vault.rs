@@ -428,6 +428,12 @@ mod tests {
         assert_eq!(fs::read_to_string(outside.join("secret.md")).unwrap(), "secret");
         assert_eq!(fs::read_dir(&outside).unwrap().count(), 1, "nothing created outside");
         assert!(v.read("real/a.md").is_ok(), "ordinary notes still work");
+
+        // Nothing behind a link reaches the index, so search and MCP can't expose it.
+        let mut ix = crate::index::Index::open(&v).unwrap();
+        ix.sync(&v).unwrap();
+        assert!(ix.search("secret", 10).unwrap().is_empty());
+        assert_eq!(ix.list("", 0, 100).unwrap().len(), 1);
     }
 
     #[test]
