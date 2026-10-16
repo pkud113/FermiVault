@@ -1,0 +1,7 @@
+{
+	"name": "Word stats",
+	"version": "1.0.0",
+	"description": "Counts the words in your vault and inserts the date at the cursor. An example plugin.",
+	"author": "FermiVault",
+	"permissions": ["read", "editor"]
+}

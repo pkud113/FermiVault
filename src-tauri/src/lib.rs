@@ -6,6 +6,7 @@ pub mod git;
 pub mod index;
 pub mod mcp;
 pub mod parse;
+pub mod plugins;
 pub mod query;
 pub mod semantic;
 pub mod vault;
@@ -251,6 +252,34 @@ async fn git_sync(state: State<'_, AppState>, interactive: bool) -> Res<git::Syn
         .map_err(err)?
 }
 
+#[tauri::command]
+async fn plugins_list(state: State<'_, AppState>) -> Res<Vec<plugins::Plugin>> {
+    Ok(plugins::list(&state.get()?.vault))
+}
+
+#[tauri::command]
+async fn plugin_source(state: State<'_, AppState>, id: String) -> Res<String> {
+    plugins::source(&state.get()?.vault, &id)
+}
+
+/// A plugin creating or replacing a note. Like agent edits: under the write lock, and the
+/// previous version is always snapshotted so the change can be undone from File recovery.
+#[tauri::command]
+async fn plugin_write(state: State<'_, AppState>, path: String, content: String, create: bool) -> Res<()> {
+    let o = state.get()?;
+    if !path.ends_with(".md") {
+        return Err("plugins can only write notes (.md)".into());
+    }
+    let _lock = o.vault.lock()?;
+    if create {
+        o.vault.create(&path, &content)?;
+    } else {
+        o.vault.snapshot(&path, 0)?;
+        o.vault.write(&path, &content)?;
+    }
+    o.ix.lock().unwrap().refresh(&o.vault, &path)
+}
+
 /// Downloads a page for the web clipper (see `clip.rs`).
 #[tauri::command]
 async fn fetch_page(url: String) -> Res<clip::Page> {
@@ -409,6 +438,9 @@ pub fn run() {
             embed_status,
             embed_install,
             fetch_page,
+            plugins_list,
+            plugin_source,
+            plugin_write,
             git_status,
             git_init,
             git_set_remote,

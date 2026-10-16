@@ -2,6 +2,7 @@
   import { app } from "./store.svelte";
   import AiSettings from "./AiSettings.svelte";
   import SyncSettings from "./SyncSettings.svelte";
+  import PluginSettings from "./PluginSettings.svelte";
   import { modal } from "./modal";
 </script>
 
@@ -50,6 +51,7 @@
       <input value={app.config.clipFolder ?? "Clippings"} onchange={(e) => app.saveConfig({ clipFolder: e.currentTarget.value.trim() || "Clippings" })} />
     </label>
     <SyncSettings />
+    <PluginSettings />
     <label>
       <span>Daily note template <small>Path of a note; leave empty for none</small></span>
       <input

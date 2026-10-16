@@ -6,7 +6,11 @@ export type Hit = { path: string; snippet: string };
 export type LinkRef = { path: string; line: number; context: string };
 export type Snapshot = { id: string; time: number; size: number };
 export type Graph = { nodes: string[]; edges: [string, string][] };
-export type VaultConfig = { bookmarks?: string[]; dailyFolder?: string; templatesFolder?: string; dailyTemplate?: string; clipFolder?: string; gitAutoSync?: number };
+export type VaultConfig = { bookmarks?: string[]; dailyFolder?: string; templatesFolder?: string; dailyTemplate?: string; clipFolder?: string;
+  gitAutoSync?: number;
+  /** Plugins enabled on this device and the permissions the user granted each. */
+  plugins?: Record<string, { enabled: boolean; permissions: string[] }>;
+};
 export type ChunkRef = { path: string; heading: string; line: number; text: string };
 export type EmbedStatus = { installed: boolean; running: boolean; pending: number; total: number; model: string };
 export type Endpoint = { name: string; base_url: string; models: string[] };
@@ -15,6 +19,7 @@ export type ChatMessage = { role: "system" | "user" | "assistant"; content: stri
 export type Table = { columns: string[]; rows: { path: string; cells: string[] }[]; total: number };
 export type GitStatus = { git: boolean; repo: boolean; branch: string | null; remote: string | null; changes: number };
 export type GitSynced = { committed: number; pulled: boolean; pushed: boolean; conflicts: string[] };
+export type PluginInfo = { id: string; manifest: Record<string, unknown> | null; error: string | null };
 export type AiApp = { id: string; name: string; file: string; detected: boolean; connected: boolean; vault: string | null };
 
 export const api = {
@@ -36,6 +41,9 @@ export const api = {
   gitSetRemote: (url: string) => invoke<void>("git_set_remote", { url }),
   /** `interactive: false` for background syncs: never opens a sign-in window. */
   gitSync: (interactive: boolean) => invoke<GitSynced>("git_sync", { interactive }),
+  pluginsList: () => invoke<PluginInfo[]>("plugins_list"),
+  pluginSource: (id: string) => invoke<string>("plugin_source", { id }),
+  pluginWrite: (path: string, content: string, create: boolean) => invoke<void>("plugin_write", { path, content, create }),
   fetchPage: (url: string) => invoke<{ url: string; html: string }>("fetch_page", { url }),
   backlinks: (path: string) => invoke<LinkRef[]>("backlinks", { path }),
   resolve: (target: string) => invoke<string | null>("resolve_link", { target }),

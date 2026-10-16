@@ -2,7 +2,7 @@
 
 Fast, local-first Markdown notes that your AI apps can work with natively.
 
-- **Plain files.** A vault is any folder of `.md` files. Nothing proprietary; app state lives in `<vault>/.fermi/` and can be deleted at any time.
+- **Plain files.** A vault is any folder of `.md` files. Nothing proprietary; app state lives in `<vault>/.fermi/`: the index and snapshots there can be rebuilt; settings and plugins live there too.
 - **Fast.** Rust core + native webview (Tauri 2), SQLite FTS5 search, incremental indexing off the UI thread.
 - **AI-native.** A built-in [MCP](https://modelcontextprotocol.io) server lets Claude Desktop, Claude Code, Codex, Cursor, VS Code, Windsurf, Gemini CLI and LM Studio search, read and edit your vault. Connect any of them with one click from the **AI apps** panel. Every agent edit is snapshotted so it can be undone.
 
@@ -28,6 +28,7 @@ The installer isn't code-signed yet, so Windows SmartScreen may say "Windows pro
 - **Canvas**: infinite boards of text cards, notes, images, links and groups with arrows, stored as open [JSON Canvas](https://jsoncanvas.org) `.canvas` files (see *Planning board* in `fixtures/test-vault`)
 - **Web clipper**: *Clip web page as a note* saves a page's article as Markdown (using [defuddle](https://github.com/kepano/defuddle)) with its title, author, date and source as properties, in a `Clippings` folder you can change in Settings
 - **Git sync** (Settings → Sync): version history and sync through any Git host, by hand or every 5/15/60 minutes, using your installed `git`. If a note changed on both sides, your version stays and the other is saved next to it as a `(conflict …)` copy
+- **Plugins**: add commands and automate your vault in JavaScript. Each plugin runs in a sandboxed worker with no network access and only the permissions you approve (see [docs/PLUGINS.md](docs/PLUGINS.md))
 - Image, PDF, audio and video viewers; file tree with drag-and-drop; trash instead of delete; light/dark themes
 - Live reload when files change on disk (external editors, sync tools, agents)
 
