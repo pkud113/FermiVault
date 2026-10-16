@@ -14,6 +14,9 @@
     menu: "M4 6h16M4 12h16M4 18h16",
     swap: "M7 7h12l-3-3M17 17H5l3 3",
     collapse: "M7 11l5-5 5 5M7 18l5-5 5 5",
+    plus: "M12 5v14M5 12h14",
+    minus: "M5 12h14",
+    fit: "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5",
   } as const;
 
   let { name, size = 17 }: { name: keyof typeof PATHS; size?: number } = $props();

@@ -203,7 +203,7 @@ export async function open(opts = {}) {
       const mod = (parts.includes("Alt") ? 1 : 0) | (parts.includes("Ctrl") ? 2 : 0) | (parts.includes("Shift") ? 8 : 0);
       const code = KEYS[key] ?? key.toUpperCase().charCodeAt(0);
       const ch = key.length === 1 ? key : undefined;
-      await send("Input.dispatchKeyEvent", { type: "keyDown", key: ch && parts.includes("Shift") ? ch.toUpperCase() : key, windowsVirtualKeyCode: code, modifiers: mod, text: !mod && ch ? ch : undefined });
+      await send("Input.dispatchKeyEvent", { type: "keyDown", key: ch && parts.includes("Shift") ? ch.toUpperCase() : key, windowsVirtualKeyCode: code, modifiers: mod, text: key === "Enter" ? "\r" : !mod && ch ? ch : undefined });
       await send("Input.dispatchKeyEvent", { type: "keyUp", key, windowsVirtualKeyCode: code, modifiers: mod });
       await page.settle(80);
     },

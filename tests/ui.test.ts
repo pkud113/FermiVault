@@ -86,6 +86,15 @@ test("text, secondary text, links and errors are readable on every surface, both
   }
 });
 
+test("graph links stand out from the graph's background, both themes", () => {
+  for (const [name, t] of [["light", light], ["dark", dark]] as const) {
+    for (const bg of ["bg", "bg-2"]) {
+      const r = ratio(rgb(t["graph-edge"]), rgb(t[bg]));
+      assert.ok(r >= 3, `${name}: --fv-graph-edge on --fv-${bg} is ${r.toFixed(2)}:1`);
+    }
+  }
+});
+
 test("callout titles are readable on their tinted surface, both themes (UI-02)", () => {
   const title = /\.cm-callout-title\s*{[^}]*color:\s*color-mix\(in srgb, var\(--c\) (\d+)%, var\(--fv-heading\)\)/.exec(css);
   assert.ok(title, "callout titles mix their colour toward the heading colour");
