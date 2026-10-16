@@ -3,7 +3,7 @@
   import { diffChange, readProps, removeProp, setProp, type PropValue } from "./frontmatter";
   import { app } from "./store.svelte";
 
-  const props = $derived(readProps(app.docText));
+  const props = $derived(readProps(app.activeDoc?.text ?? ""));
   let newKey = $state("");
   let newValue = $state("");
 
@@ -11,7 +11,7 @@
   function edit(fn: (text: string) => string) {
     const ed = app.focusedEditor();
     const doc = ed?.doc();
-    if (!ed || !doc) return void (app.error = t("Open a note first."));
+    if (!ed || !doc || doc.path !== app.activeDoc?.path) return void (app.error = t("Open a note first."));
     const text = doc.state.doc.toString();
     const next = fn(text);
     if (next !== text) ed.apply(doc, { changes: diffChange(text, next) });
@@ -29,61 +29,79 @@
   }
 </script>
 
-{#each props as p (p.key)}
-  <div class="prop">
-    <span class="key" title={p.key}>{p.key}</span>
+{#each props as p, i (p.key)}
+  {@const id = `prop-${i}`}
+  <div class="prop" class:check={kind(p.value) === "check"}>
+    <label class="key" for={id} title={p.key}>{p.key}</label>
+    <button class="x" aria-label={t("Remove {property}", { property: p.key })} title={t("Remove property")} onclick={() => edit((text) => removeProp(text, p.key))}>✕</button>
     {#if kind(p.value) === "check"}
-      <input type="checkbox" aria-label={p.key} checked={p.value === "true"} onchange={(e) => edit((text) => setProp(text, p.key, e.currentTarget.checked ? "true" : "false"))} />
-      <span class="spacer"></span>
+      <input {id} type="checkbox" checked={p.value === "true"} onchange={(e) => edit((text) => setProp(text, p.key, e.currentTarget.checked ? "true" : "false"))} />
     {:else if kind(p.value) === "date"}
-      <input type="date" aria-label={p.key} value={p.value} onchange={(e) => edit((text) => setProp(text, p.key, e.currentTarget.value))} />
+      <input {id} type="date" value={p.value} onchange={(e) => edit((text) => setProp(text, p.key, e.currentTarget.value))} />
     {:else}
       <input
-        aria-label={p.key}
+        {id}
         value={Array.isArray(p.value) ? p.value.join(", ") : p.value}
-        placeholder={Array.isArray(p.value) ? "a, b, c" : t("empty")}
+        placeholder={Array.isArray(p.value) ? t("item, item") : t("empty")}
+        title={Array.isArray(p.value) ? t("A list: separate items with commas") : undefined}
         onchange={(e) => edit((text) => setProp(text, p.key, value(e.currentTarget.value, Array.isArray(p.value))))}
       />
     {/if}
-    <button class="x" aria-label={t("Remove {property}", { property: p.key })} title={t("Remove property")} onclick={() => edit((text) => removeProp(text, p.key))}>✕</button>
   </div>
 {:else}
   <div class="empty">{t("No properties yet. They're stored as YAML at the top of the note, and tables can filter and sort by them.")}</div>
 {/each}
 
 <form class="add" onsubmit={(e) => (e.preventDefault(), add())}>
-  <input placeholder={t("Property")} aria-label={t("New property name")} bind:value={newKey} spellcheck="false" />
-  <input placeholder={t("Value (a, b for a list)")} aria-label={t("New property value")} bind:value={newValue} />
+  <div class="add-title">{t("Add a property")}</div>
+  <label>
+    <span>{t("Name")}</span>
+    <input placeholder="status" bind:value={newKey} spellcheck="false" />
+  </label>
+  <label>
+    <span>{t("Value")}</span>
+    <input placeholder="doing" bind:value={newValue} aria-describedby="prop-hint" />
+  </label>
+  <small id="prop-hint">{t("Separate list items with commas. A date as YYYY-MM-DD gets a date picker; true or false gets a checkbox.")}</small>
   <button disabled={!newKey.trim()}>{t("Add")}</button>
 </form>
 
 <style>
   .prop {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    gap: 6px;
-    padding: 3px 0;
+    column-gap: 4px;
+    padding: 4px 0 6px;
+  }
+  .prop input {
+    grid-column: 1 / -1;
+    min-width: 0;
+    font-size: 13px;
+  }
+  /* Checkboxes sit next to their name. */
+  .prop.check {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .prop.check input {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .prop.check .key {
+    grid-column: 2;
   }
   .key {
-    flex: 0 0 34%;
-    font-size: 12.5px;
+    font-size: 12px;
     color: var(--fv-muted);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-  .prop input:not([type="checkbox"]) {
-    flex: 1;
-    min-width: 0;
-    font-size: 13px;
-  }
-  .spacer {
-    flex: 1;
+    padding: 0 2px 2px;
   }
   .x {
     border: none;
     background: none;
-    padding: 2px 4px;
+    padding: 2px 6px;
     font-size: 10px;
     color: var(--fv-muted);
   }
@@ -92,16 +110,35 @@
   }
   .add {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 6px;
     margin-top: 10px;
     padding-top: 10px;
     border-top: 1px solid var(--fv-border);
   }
+  .add-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--fv-muted);
+  }
+  .add label {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 12px;
+    color: var(--fv-muted);
+  }
   .add input {
-    flex: 1 1 40%;
     min-width: 0;
     font-size: 13px;
+  }
+  .add small {
+    font-size: 11.5px;
+    color: var(--fv-faint);
+    line-height: 1.4;
+  }
+  .add button {
+    align-self: flex-end;
   }
   .empty {
     color: var(--fv-faint);

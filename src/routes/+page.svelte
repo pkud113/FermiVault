@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { setLanguage, t } from "$lib/i18n.svelte";
+  import { keys, setLanguage, t } from "$lib/i18n.svelte";
   import { tk } from "$lib/tk";
   import { onMount, tick } from "svelte";
   import { startup } from "$lib/startup";
@@ -258,7 +258,12 @@
     return () => unlisten.forEach((u) => u.then((f) => f()));
   });
 
-  const words = $derived(app.docText.match(/\S+/g)?.length ?? 0);
+  /** Local save state of the active note or canvas (Git sync is separate, further right). */
+  const savable = $derived(!!app.activePath && ["note", "canvas"].includes(kind(app.activePath)));
+  const activeSave = $derived(app.activePath ? app.saves[app.activePath] : undefined);
+  const failedElsewhere = $derived(Object.entries(app.saves).filter(([p, s]) => s.state === "failed" && p !== app.activePath).length);
+
+  const words = $derived(app.activeDoc?.text.match(/\S+/g)?.length ?? 0);
 </script>
 
 <svelte:window onkeydown={keydown} bind:innerWidth={vw} />
@@ -278,14 +283,14 @@
       <aside class="left">
         <div class="switch">
           <div class="views" role="tablist" aria-label={t("Sidebar")} use:tabKeys>
-            {#each [["files", tk("Files")], ["search", tk("Search (Ctrl+Shift+F)")], ["tags", tk("Tags")], ["bookmarks", tk("Bookmarks")], ["ai", tk("AI apps")]] as const as [id, label]}
+            {#each [["files", tk("Files"), ""], ["search", tk("Search"), "Ctrl+Shift+F"], ["tags", tk("Tags"), ""], ["bookmarks", tk("Bookmarks"), ""], ["ai", tk("AI apps"), ""]] as const as [id, label, combo]}
               <button
                 role="tab"
                 aria-selected={app.left === id}
                 tabindex={app.left === id ? 0 : -1}
                 class:on={app.left === id}
                 onclick={() => (app.left = id)}
-                title={t(label)}
+                title={combo ? `${t(label)} (${keys(combo)})` : t(label)}
                 aria-label={t(label)}
               >
                 <Icon name={id} />
@@ -293,8 +298,8 @@
             {/each}
           </div>
           <span class="spacer"></span>
-          <button title={t("Today's daily note (Ctrl+Shift+D)")} aria-label={t("Daily note")} onclick={() => app.dailyNote()}><Icon name="calendar" /></button>
-          <button title={t("Graph view (Alt+G)")} aria-label={t("Graph view")} onclick={() => app.open(GRAPH, true)}><Icon name="graph" /></button>
+          <button title={`${t("Today's daily note")} (${keys("Ctrl+Shift+D")})`} aria-label={t("Daily note")} onclick={() => app.dailyNote()}><Icon name="calendar" /></button>
+          <button title={`${t("Graph view")} (${keys("Alt+G")})`} aria-label={t("Graph view")} onclick={() => app.open(GRAPH, true)}><Icon name="graph" /></button>
         </div>
         {#if app.left === "files"}<FileTree />
         {:else if app.left === "search"}<SearchPane />
@@ -328,6 +333,10 @@
                 onauxclick={(e) => e.button === 1 && app.closeTab(pi, ti)}
               >
                 <span>{tab === GRAPH ? t("Graph") : basename(tab)}</span>
+                {#if app.saves[tab]}
+                  {@const s = app.saves[tab]}
+                  <span class="dirty" class:bad={s.state === "failed"} role="img" aria-label={s.state === "failed" ? t("Not saved") : t("Unsaved changes")} title={s.state === "failed" ? t("Not saved: {error}", { error: s.error ?? "" }) : t("Unsaved changes")}>●</span>
+                {/if}
                 <button class="x" aria-label={t("Close {tab}", { tab: tab === GRAPH ? t("Graph") : basename(tab) })} tabindex={ti === pane.active ? 0 : -1} onclick={(e) => (e.stopPropagation(), app.closeTab(pi, ti))}>✕</button>
               </div>
             {/each}
@@ -345,12 +354,12 @@
               {:else}<Viewer path={tab} />{/if}
             {:else}
               <div class="empty">
-                <button onclick={() => (app.palette = { kind: "switcher" })}>{t("Open a note")} <kbd>Ctrl O</kbd></button>
-                <button onclick={() => app.newNote()}>{t("New note")} <kbd>Ctrl N</kbd></button>
-                <button onclick={() => app.dailyNote()}>{t("Today's daily note")} <kbd>Ctrl Shift D</kbd></button>
-                <button onclick={() => app.open(GRAPH, true)}>{t("Graph view")} <kbd>Alt G</kbd></button>
-                <button onclick={() => (app.palette = { kind: "commands" })}>{t("All commands")} <kbd>Ctrl P</kbd></button>
-                <button onclick={() => (app.showSettings = true)}>{t("Settings")} <kbd>Ctrl ,</kbd></button>
+                <button onclick={() => (app.palette = { kind: "switcher" })}>{t("Open a note")} <kbd>{keys("Ctrl+O")}</kbd></button>
+                <button onclick={() => app.newNote()}>{t("New note")} <kbd>{keys("Ctrl+N")}</kbd></button>
+                <button onclick={() => app.dailyNote()}>{t("Today's daily note")} <kbd>{keys("Ctrl+Shift+D")}</kbd></button>
+                <button onclick={() => app.open(GRAPH, true)}>{t("Graph view")} <kbd>{keys("Alt+G")}</kbd></button>
+                <button onclick={() => (app.palette = { kind: "commands" })}>{t("All commands")} <kbd>{keys("Ctrl+P")}</kbd></button>
+                <button onclick={() => (app.showSettings = true)}>{t("Settings")} <kbd>{keys("Ctrl+,")}</kbd></button>
               </div>
             {/if}
           </div>
@@ -368,12 +377,28 @@
     {/if}
 
     <footer>
-      <button class="mode gear" title={t("Settings (Ctrl+,)")} aria-label={t("Settings")} onclick={() => (app.showSettings = true)}><Icon name="settings" size={14} /></button>
-      <span class="path">{app.activePath ?? ""}</span>
+      <button class="mode gear" title={`${t("Settings")} (${keys("Ctrl+,")})`} aria-label={t("Settings")} onclick={() => (app.showSettings = true)}><Icon name="settings" size={14} /></button>
+      <span class="path">{app.activePath === GRAPH ? t("Graph") : (app.activePath ?? "")}</span>
       <span class="spacer"></span>
+      {#if failedElsewhere}
+        <button class="mode bad" onclick={() => app.flush()} title={t("Retry saving")}>
+          {t(failedElsewhere === 1 ? "1 other file not saved · Retry" : "{n} other files not saved · Retry", { n: failedElsewhere })}
+        </button>
+      {/if}
+      {#if savable}
+        {#if activeSave?.state === "failed"}
+          <button class="mode bad" onclick={() => app.flush()} title={t("Not saved: {error}", { error: activeSave.error ?? "" })}>{t("Not saved · Retry")}</button>
+        {:else if activeSave?.state === "saving"}
+          <span class="save">{t("Saving…")}</span>
+        {:else if activeSave}
+          <span class="save">{t("Unsaved changes")}</span>
+        {:else}
+          <span class="save">{t("Saved")}</span>
+        {/if}
+      {/if}
       {#if app.sync.busy || app.sync.last || app.sync.error || app.config.gitAutoSync}
         <button class="mode" class:bad={!!app.sync.error} title={app.sync.error ?? t("Sync with Git now")} onclick={() => app.syncNow()}>
-          {app.sync.busy ? t("Syncing…") : app.sync.error ? t("Sync failed") : app.sync.last ? t("Synced {when}", { when: ago(app.sync.last) }) : t("Sync")}
+          {app.sync.busy ? t("Git: syncing…") : app.sync.error ? t("Git: sync failed") : app.sync.last ? t("Git: synced {when}", { when: ago(app.sync.last) }) : t("Git: sync")}
         </button>
       {/if}
       {#if ai.busy}
@@ -381,14 +406,18 @@
         <button class="mode" onclick={() => ai.stop()}>{t("Stop")}</button>
       {/if}
       {#if app.activePath?.endsWith(".md")}
-        <button class="mode" onclick={() => app.toggleBookmark(app.activePath)} title={t("Bookmark this note")}>
-          {app.isBookmarked(app.activePath) ? "★ Bookmarked" : "☆ Bookmark"}
+        <button class="mode" onclick={() => app.toggleBookmark(app.activePath)} title={t("Bookmark this note")} aria-pressed={app.isBookmarked(app.activePath)}>
+          <span aria-hidden="true">{app.isBookmarked(app.activePath) ? "★" : "☆"}</span>
+          {app.isBookmarked(app.activePath) ? t("Bookmarked") : t("Bookmark")}
         </button>
-        <span>{t("{words} words · {chars} chars", { words: words.toLocaleString(), chars: app.docText.length.toLocaleString() })}</span>
+        <span>{t("{words} words · {chars} chars", { words: words.toLocaleString(), chars: (app.activeDoc?.text.length ?? 0).toLocaleString() })}</span>
       {/if}
-      <button class="mode" onclick={() => (app.settings.livePreview = !app.settings.livePreview)} title="Ctrl+E">
-        {app.settings.livePreview ? t("Live preview") : t("Source")}
-      </button>
+      {#if app.activePath && kind(app.activePath) === "note"}
+        <!-- Only notes have a live preview / source mode. -->
+        <button class="mode" onclick={() => (app.settings.livePreview = !app.settings.livePreview)} title={`${t("Switch between live preview and source")} (${keys("Ctrl+E")})`}>
+          {app.settings.livePreview ? t("Live preview") : t("Source")}
+        </button>
+      {/if}
     </footer>
   </div>
 {/if}
@@ -450,6 +479,7 @@
     overflow: hidden;
   }
   aside {
+    grid-row: 1;
     position: relative;
     display: flex;
     flex-direction: column;
@@ -457,10 +487,14 @@
     min-width: 0;
     background: var(--fv-bg-2);
   }
+  /* Explicit columns: a hidden sidebar isn't rendered, and auto-placement would then move
+     the panes into its zero-width column. */
   .left {
+    grid-column: 1;
     border-right: 1px solid var(--fv-border);
   }
   .right {
+    grid-column: 3;
     border-left: 1px solid var(--fv-border);
   }
   .grip {
@@ -484,17 +518,17 @@
   .switch {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
+    gap: 2px;
     padding: 8px 8px 0;
   }
   .views {
     display: flex;
-    gap: 4px;
+    gap: 2px;
   }
   .switch button {
     border: none;
     background: none;
-    padding: 5px;
+    padding: 5px 4px;
     display: grid;
     place-items: center;
   }
@@ -527,6 +561,8 @@
     color: var(--fv-text);
   }
   .panes {
+    grid-column: 2;
+    grid-row: 1;
     display: flex;
     min-width: 0;
     min-height: 0;
@@ -578,6 +614,14 @@
   .tab.on {
     background: var(--fv-active);
     color: var(--fv-text);
+  }
+  .dirty {
+    font-size: 9px;
+    color: var(--fv-faint);
+    margin-right: -2px;
+  }
+  .dirty.bad {
+    color: var(--fv-danger);
   }
   .x {
     border: none;

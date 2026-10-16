@@ -15,6 +15,7 @@ import { tags as t } from "@lezer/highlight";
 import { basename, dirname } from "./api";
 import { embedDepth, host, resolveFile, widgetField } from "./widgets";
 import { aiRange } from "./inline";
+import { bodyStart } from "./frontmatter";
 
 export type LinkHandler = (target: string, kind: "wiki" | "md" | "url", newTab: boolean) => void;
 
@@ -299,6 +300,8 @@ host.nested = (doc, depth) =>
 export function createState(doc: string, o: EditorOptions): EditorState {
   return EditorState.create({
     doc,
+    // Start at the body: in live preview the properties block stays collapsed until you go into it.
+    selection: EditorSelection.cursor(o.depth ? 0 : bodyStart(doc)),
     extensions: [
       vimMode.of([]),
       embedDepth.of(o.depth ?? 0),

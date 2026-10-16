@@ -11,3 +11,4 @@ vite.config.ts.timestamp-*
 
 # FermiVault per-vault state (index, snapshots, trash)
 .fermi/
+tests/ui/out/

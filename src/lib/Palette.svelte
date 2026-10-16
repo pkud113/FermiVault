@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { t } from "./i18n.svelte";
+  import { keys, t } from "./i18n.svelte";
   import { onMount } from "svelte";
   import { basename, dirname, fuzzy } from "./api";
   import { app, type Command } from "./store.svelte";
@@ -25,7 +25,7 @@
 
   const items: Item[] = $derived.by(() => {
     if (mode.kind === "prompt") return [];
-    if (mode.kind === "commands") return rank(commands.map((c) => ({ label: t(c.name), detail: c.keys, run: c.run })), (i) => i.label);
+    if (mode.kind === "commands") return rank(commands.map((c) => ({ label: t(c.name), detail: c.keys && keys(c.keys), run: c.run })), (i) => i.label);
     if (mode.kind === "pick") return rank(mode.items, (i) => i.label);
     const notes = rank(
       app.notes.map((p) => ({ label: basename(p), detail: dirname(p), run: (nt: boolean) => app.open(p, nt) })),
@@ -86,7 +86,7 @@
       aria-controls={mode.kind === "prompt" ? undefined : "palette-list"}
       aria-autocomplete={mode.kind === "prompt" ? undefined : "list"}
       aria-activedescendant={mode.kind !== "prompt" && items.length ? `palette-opt-${sel}` : undefined}
-      aria-label={mode.kind === "prompt" ? mode.title : "Search"}
+      aria-label={mode.kind === "prompt" ? mode.title : mode.kind === "switcher" ? t("Find or create a note") : mode.kind === "commands" ? t("Search commands") : mode.placeholder}
       spellcheck="false"
       placeholder={mode.kind === "switcher" ? t("Find or create a note…") : mode.kind === "commands" ? t("Type a command…") : mode.kind === "pick" ? mode.placeholder : ""}
     />
