@@ -56,3 +56,21 @@ test("a failed rewrite with no output leaves the note and history untouched", ()
   assert.equal(s.doc.toString(), "keep this");
   assert.equal(undone(s).doc.toString(), "keep this", "nothing to undo");
 });
+
+test("a provider failure after partial output still undoes to the original in one step", () => {
+  let s = make("Fix this sentense please", 4, 17);
+  s = apply(s, begin(4, 17));
+  s = apply(s, step(s, "this sent", true)); // stream dies here
+  assert.equal(s.doc.toString(), "Fix this sent please");
+  s = apply(s, ...finish(s, "this sentense"));
+  assert.equal(undone(s).doc.toString(), "Fix this sentense please");
+});
+
+test("output streamed into a note that's no longer on screen lands in that note's own state", () => {
+  // The editor keeps each open note's state; a switched-away note is updated directly, not via the view.
+  const background = { state: apply(make("note A", 6), begin(6, 6)) };
+  const onScreen = make("note B", 6);
+  background.state = apply(background.state, step(background.state, " + AI", false));
+  assert.equal(background.state.doc.toString(), "note A + AI");
+  assert.equal(onScreen.doc.toString(), "note B", "the visible note is untouched");
+});
