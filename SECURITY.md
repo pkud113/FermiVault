@@ -15,4 +15,5 @@ Only the latest release gets security fixes.
 ## Scope notes
 
 - **AI apps you connect over MCP** can read and edit everything in that vault; that's their job. Every agent edit is snapshotted and can be undone from File recovery.
+- **Plugins and Git are opt-in per device.** Plugin approvals, Git auto-sync and the choice to use a vault's Git repository are stored on your computer, not in the vault, so a shared vault can't turn them on.
 - **Notes are treated as untrusted content.** This covers shared vaults, web clips and AI answers. Rendering one must not run code, read files outside the vault, or contact the network without your action. If you find a way around that, please report it.

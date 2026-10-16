@@ -39,6 +39,9 @@
   {:else if !status.repo}
     <small>{t("This vault isn't a Git repository. Setting it up commits your notes locally;")} <code>.fermi/</code> {t("(app data) is left out.")}</small>
     <button class="primary" disabled={busy} onclick={() => step(() => api.gitInit())}>{t("Set up Git for this vault")}</button>
+  {:else if !status.trusted}
+    <small>{t("This vault already has a Git repository. Use it only if you made it or trust where it came from: a repository's settings can run programs on your computer.")}</small>
+    <button class="primary" disabled={busy} onclick={() => step(() => api.gitInit())}>{t("Use this repository")}</button>
   {:else}
     <small>
       {t("Branch")} <code>{status.branch ?? "?"}</code> · {status.changes ? t(status.changes === 1 ? "1 change not yet synced" : "{n} changes not yet synced", { n: status.changes }) : t("everything committed")}
