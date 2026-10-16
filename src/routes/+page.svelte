@@ -21,6 +21,7 @@
   import Settings from "$lib/Settings.svelte";
   import { MAX_PANEL, MIN_PANEL, clampPanel, sidebars } from "$lib/ui";
   import { tabKeys } from "$lib/modal";
+  import { refreshTables } from "$lib/widgets";
 
   let ready = $state(false);
   let leftW = $state(260);
@@ -37,6 +38,15 @@
   async function chooseVault() {
     const dir = await pickFolder({ directory: true, title: "Open a folder as a vault" });
     if (typeof dir === "string") await app.openVault(dir);
+  }
+
+  /** Inserts a starter ```table``` block at the cursor. */
+  function insertTable() {
+    const ed = app.focusedEditor();
+    const doc = ed?.doc();
+    if (!ed || !doc) return void (app.error = "Open a note first.");
+    const block = "```table\nfrom: #project\nwhere: status != done\nsort: due\ncolumns: file, status, due\n```\n";
+    ed.apply(doc, doc.state.replaceSelection(block));
   }
 
   function cycleTab(step: number) {
@@ -77,6 +87,8 @@
     { id: "ai", name: "Connect AI apps (Claude, Codex, Cursor…)", run: () => (app.reveal("left"), (app.left = "ai")) },
     { id: "backlinks", name: "Show backlinks", run: () => (app.reveal("right"), (app.right = "backlinks")) },
     { id: "outline", name: "Show outline", run: () => (app.reveal("right"), (app.right = "outline")) },
+    { id: "properties", name: "Show properties of this note", run: () => (app.reveal("right"), (app.right = "properties")) },
+    { id: "table", name: "Insert table of notes (by properties)", run: insertTable },
     { id: "left", name: "Toggle left sidebar", run: () => app.toggleSide("left", lw > 0) },
     { id: "right", name: "Toggle right sidebar", run: () => app.toggleSide("right", rw > 0) },
     { id: "theme", name: "Toggle dark mode", run: () => (app.settings.theme = dark ? "light" : "dark") },
@@ -114,6 +126,11 @@
   });
   $effect(() => {
     document.documentElement.style.setProperty("--fv-font-size", `${app.settings.fontSize}px`);
+  });
+  // Tables in notes show live results: re-run them when files change.
+  $effect(() => {
+    app.version;
+    refreshTables();
   });
   // Persist settings whenever any of them changes (palette toggles included).
   $effect(() => {

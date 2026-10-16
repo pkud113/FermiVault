@@ -11,6 +11,8 @@ export type ChunkRef = { path: string; heading: string; line: number; text: stri
 export type EmbedStatus = { installed: boolean; running: boolean; pending: number; total: number; model: string };
 export type Endpoint = { name: string; base_url: string; models: string[] };
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
+/** Result of a ```table``` query (see src-tauri/src/query.rs). */
+export type Table = { columns: string[]; rows: { path: string; cells: string[] }[]; total: number };
 export type AiApp = { id: string; name: string; file: string; detected: boolean; connected: boolean; vault: string | null };
 
 export const api = {
@@ -26,6 +28,7 @@ export const api = {
   rename: (from: string, to: string) => invoke<number>("rename_path", { from, to }),
   trash: (path: string) => invoke<void>("trash_path", { path }),
   search: (query: string) => invoke<Hit[]>("search", { query }),
+  query: (text: string) => invoke<Table>("query", { text }),
   backlinks: (path: string) => invoke<LinkRef[]>("backlinks", { path }),
   resolve: (target: string) => invoke<string | null>("resolve_link", { target }),
   graph: () => invoke<Graph>("graph"),

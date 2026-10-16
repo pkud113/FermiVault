@@ -5,7 +5,7 @@
 import { Facet, StateField, type EditorState } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
-import { assetUrl, imageTarget, kind, sectionRange } from "./api";
+import { assetUrl, imageTarget, kind, sectionRange, type Table } from "./api";
 
 /** App services the widgets need; filled in by the app at startup. */
 export const host = {
@@ -15,6 +15,7 @@ export const host = {
   open: (_path: string, _newTab: boolean) => {},
   dark: () => false,
   remoteImages: () => false,
+  query: async (_text: string): Promise<Table> => ({ columns: [], rows: [], total: 0 }),
   /** Read-only live-preview editor for transclusions (set by editor.ts to avoid an import cycle). */
   nested: (_doc: string, _depth: number): EditorView => {
     throw new Error("nested editor not configured");
@@ -189,6 +190,76 @@ class MermaidWidget extends WidgetType {
   }
 }
 
+const liveTables = new Set<() => void>();
+
+/** Re-runs every table on screen; the app calls this when files change. */
+export function refreshTables() {
+  for (const run of liveTables) run();
+}
+
+const byValue = (a: string, b: string) => {
+  const [x, y] = [Number(a), Number(b)];
+  return a !== "" && b !== "" && !isNaN(x) && !isNaN(y) ? x - y : a.localeCompare(b, undefined, { sensitivity: "base" });
+};
+
+/** A ```table``` block: a live, sortable table of notes chosen by their properties. */
+class TableWidget extends WidgetType {
+  constructor(readonly code: string) {
+    super();
+  }
+  eq(o: TableWidget) {
+    return o.code === this.code;
+  }
+  toDOM(view: EditorView) {
+    const wrap = Object.assign(document.createElement("div"), { className: "cm-qtable" });
+    let data: Table | null = null;
+    let sort: { col: number; desc: boolean } | null = null;
+    const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text = "", cls = "") =>
+      Object.assign(document.createElement(tag), { textContent: text, className: cls });
+    const draw = () => {
+      if (!data) return;
+      const rows = [...data.rows];
+      if (sort) rows.sort((a, b) => byValue(a.cells[sort!.col], b.cells[sort!.col]) * (sort!.desc ? -1 : 1));
+      const table = el("table");
+      const head = table.createTHead().insertRow();
+      data.columns.forEach((c, i) => {
+        const th = head.appendChild(el("th"));
+        const b = th.appendChild(el("button", c + (sort?.col === i ? (sort.desc ? " ↓" : " ↑") : "")));
+        th.ariaSort = sort?.col === i ? (sort.desc ? "descending" : "ascending") : "none";
+        b.onclick = () => ((sort = { col: i, desc: sort?.col === i && !sort.desc }), draw());
+      });
+      const body = table.createTBody();
+      for (const r of rows) {
+        const tr = body.insertRow();
+        r.cells.forEach((cell, i) => {
+          const td = tr.appendChild(el("td"));
+          if (data!.columns[i].toLowerCase() === "file") {
+            const a = td.appendChild(el("button", cell, "cm-qtable-file"));
+            a.title = r.path;
+            a.onclick = (e) => host.open(r.path, e.ctrlKey || e.metaKey);
+          } else td.textContent = cell;
+        });
+      }
+      const foot = data.total > data.rows.length ? `Showing ${data.rows.length} of ${data.total}` : `${data.total} note${data.total === 1 ? "" : "s"}`;
+      wrap.replaceChildren(table, el("div", data.rows.length ? foot : "No matching notes.", "cm-qtable-foot"));
+      view.requestMeasure();
+    };
+    const run = () =>
+      host.query(this.code).then(
+        (t) => ((data = t), draw()),
+        (e) => (wrap.replaceChildren(el("div", `Table: ${e}`, "cm-embed-missing")), view.requestMeasure()),
+      );
+    (wrap as any).run = run;
+    liveTables.add(run);
+    wrap.textContent = "Loading table…";
+    run();
+    return wrap;
+  }
+  destroy(dom: HTMLElement) {
+    liveTables.delete((dom as any).run);
+  }
+}
+
 class CheckboxWidget extends WidgetType {
   constructor(readonly checked: boolean) {
     super();
@@ -232,9 +303,11 @@ function candidates(state: EditorState): Candidate[] {
       if (n.name === "FencedCode") {
         const info = n.node.getChild("CodeInfo");
         const body = n.node.getChild("CodeText");
-        if (info && body && state.sliceDoc(info.from, info.to).trim().toLowerCase() === "mermaid") {
+        const lang = info ? state.sliceDoc(info.from, info.to).trim().toLowerCase() : "";
+        if (body && (lang === "mermaid" || lang === "table")) {
           const [a, b] = lineSpan(n.from, n.to);
-          out.push({ from: a, to: b, block: true, widget: new MermaidWidget(state.sliceDoc(body.from, body.to)) });
+          const code = state.sliceDoc(body.from, body.to);
+          out.push({ from: a, to: b, block: true, widget: lang === "table" ? new TableWidget(code) : new MermaidWidget(code) });
         }
         return false;
       }

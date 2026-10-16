@@ -58,7 +58,7 @@ class App {
   panes = $state<Pane[]>([{ tabs: [], active: 0 }]);
   focus = $state(0);
   left = $state<"files" | "search" | "tags" | "bookmarks" | "ai">("files");
-  right = $state<"backlinks" | "outline" | "graph" | "chat">("backlinks");
+  right = $state<"backlinks" | "outline" | "properties" | "graph" | "chat">("backlinks");
   /** Per-vault settings stored in `.fermi/config.json`. */
   config = $state<VaultConfig>({});
   /** Note whose snapshots the file-recovery dialog is showing. */
@@ -322,4 +322,5 @@ Object.assign(host, {
   open: (path: string, newTab: boolean) => app.open(path, newTab),
   dark: () => document.documentElement.dataset.theme === "dark",
   remoteImages: () => app.settings.remoteImages,
+  query: (text: string) => api.query(text),
 });

@@ -4,6 +4,7 @@
   import { app } from "./store.svelte";
   import Chat from "./Chat.svelte";
   import Graph from "./Graph.svelte";
+  import Properties from "./Properties.svelte";
 
   let links = $state<LinkRef[]>([]);
   let related = $state<[string, number][]>([]);
@@ -47,7 +48,7 @@
 </script>
 
 <div class="tabs" role="tablist" aria-label="Side panel" use:tabKeys>
-  {#each [["backlinks", "Backlinks"], ["outline", "Outline"], ["graph", "Graph"], ["chat", "Chat"]] as const as [id, label]}
+  {#each [["backlinks", "Backlinks"], ["outline", "Outline"], ["properties", "Properties"], ["graph", "Graph"], ["chat", "Chat"]] as const as [id, label]}
     <button role="tab" aria-selected={app.right === id} tabindex={app.right === id ? 0 : -1} class:on={app.right === id} onclick={() => (app.right = id)}>
       {label}
     </button>
@@ -81,6 +82,8 @@
     {/if}
   {:else if app.right === "graph"}
     <Graph local />
+  {:else if app.right === "properties"}
+    {#if app.activePath.endsWith(".md")}<Properties />{:else}<div class="empty">Properties belong to notes.</div>{/if}
   {:else}
     {#each headings as h}
       <button class="heading" style="padding-left:{8 + (h.level - minLevel) * 14}px" onclick={() => app.goto(app.activePath!, h.line)}>
@@ -95,11 +98,12 @@
 <style>
   .tabs {
     display: flex;
+    flex-wrap: wrap;
     gap: 4px;
     padding: 8px;
   }
   .tabs button {
-    flex: 1;
+    flex: 1 1 auto;
     font-size: 12px;
     padding: 5px 4px;
   }
@@ -143,7 +147,8 @@
     white-space: nowrap;
     opacity: 0;
   }
-  .rel:hover .link {
+  .rel:hover .link,
+  .link:focus-visible {
     opacity: 1;
   }
   button.src,

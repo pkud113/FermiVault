@@ -11,7 +11,12 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::sync::LazyLock;
 
-const SCHEMA_VERSION: i32 = 2;
+const SCHEMA_VERSION: i32 = 3;
+
+/// Frontmatter properties, one row per value (list items get a row each).
+const PROPS_SCHEMA: &str = "CREATE TABLE props(path TEXT NOT NULL, key TEXT NOT NULL COLLATE NOCASE, value TEXT NOT NULL);
+     CREATE INDEX props_path ON props(path);
+     CREATE INDEX props_key ON props(key);";
 
 pub struct Index {
     pub db: Connection,
@@ -71,11 +76,20 @@ impl Index {
         // don't both rebuild it.
         let tx = db.transaction_with_behavior(TransactionBehavior::Immediate).map_err(err)?;
         let v: i32 = tx.pragma_query_value(None, "user_version", |r| r.get(0)).map_err(err)?;
-        if v != SCHEMA_VERSION {
+        if v == 2 {
+            // v3 only adds properties: create the table and mark every note stale so the next
+            // sync re-indexes it. Chunk vectors are reused by text, so nothing is re-embedded.
+            tx.execute_batch(&format!(
+                "DROP TABLE IF EXISTS props; {PROPS_SCHEMA}
+                 UPDATE notes SET mtime = -1;
+                 PRAGMA user_version = {SCHEMA_VERSION};"
+            ))
+            .map_err(err)?;
+        } else if v != SCHEMA_VERSION {
             tx.execute_batch(&format!(
                 "DROP TABLE IF EXISTS notes; DROP TABLE IF EXISTS links; DROP TABLE IF EXISTS tags;
                  DROP TABLE IF EXISTS headings; DROP TABLE IF EXISTS fts;
-                 DROP TABLE IF EXISTS chunks; DROP TABLE IF EXISTS meta;
+                 DROP TABLE IF EXISTS chunks; DROP TABLE IF EXISTS meta; DROP TABLE IF EXISTS props;
                  CREATE TABLE notes(id INTEGER PRIMARY KEY, path TEXT UNIQUE NOT NULL, key TEXT NOT NULL,
                                     stem TEXT NOT NULL, mtime INTEGER NOT NULL);
                  CREATE INDEX notes_stem ON notes(stem);
@@ -96,6 +110,7 @@ impl Index {
                  CREATE INDEX chunks_pending ON chunks(id) WHERE vec IS NULL;
                  CREATE TABLE meta(k TEXT PRIMARY KEY, v INTEGER NOT NULL);
                  INSERT INTO meta VALUES ('gen', 0);
+                 {PROPS_SCHEMA}
                  PRAGMA user_version = {SCHEMA_VERSION};"
             ))
             .map_err(err)?;
@@ -342,6 +357,7 @@ fn remove_note(db: &Connection, path: &str) -> Res<()> {
         "DELETE FROM tags WHERE path = ?1",
         "DELETE FROM headings WHERE path = ?1",
         "DELETE FROM chunks WHERE path = ?1",
+        "DELETE FROM props WHERE path = ?1",
     ] {
         db.execute(sql, [path]).map_err(err)?;
     }
@@ -389,6 +405,10 @@ fn index_note(db: &Connection, path: &str, text: &str, mtime: i64) -> Res<()> {
         db.execute("INSERT INTO tags(path, tag) VALUES (?1, ?2)", params![path, t])
             .map_err(err)?;
     }
+    for (k, v) in parse::properties(text) {
+        db.execute("INSERT INTO props(path, key, value) VALUES (?1, ?2, ?3)", params![path, k, v])
+            .map_err(err)?;
+    }
     for (level, text, line) in &p.headings {
         db.execute(
             "INSERT INTO headings(path, level, text, line) VALUES (?1, ?2, ?3, ?4)",
@@ -402,6 +422,31 @@ fn index_note(db: &Connection, path: &str, text: &str, mtime: i64) -> Res<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Upgrading a v2 index adds properties without dropping embeddings.
+    #[test]
+    fn migrates_v2_keeping_vectors() {
+        let d = tempfile::tempdir().unwrap();
+        let v = Vault::new(d.path()).unwrap();
+        v.write("a.md", "---\nstatus: open\n---\nhello").unwrap();
+        {
+            let mut ix = Index::open(&v).unwrap();
+            ix.sync(&v).unwrap();
+            ix.db.execute("UPDATE chunks SET vec = x'00000000'", []).unwrap();
+            ix.db.execute_batch("DROP TABLE props; PRAGMA user_version = 2;").unwrap();
+        }
+        let mut ix = Index::open(&v).unwrap();
+        assert_eq!(ix.sync(&v).unwrap(), 1, "every note is re-indexed once");
+        let props: i64 = ix
+            .db
+            .query_row("SELECT count(*) FROM props WHERE key = 'status'", [], |r| r.get(0))
+            .unwrap();
+        let pending: i64 = ix
+            .db
+            .query_row("SELECT count(*) FROM chunks WHERE vec IS NULL", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!((props, pending), (1, 0), "properties indexed, no chunk needs re-embedding");
+    }
 
     /// The app opens several connections at once on a fresh vault (and an MCP process may too).
     #[test]

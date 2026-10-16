@@ -246,6 +246,41 @@ span.cm-embed {
   color: var(--fv-danger);
   font-size: 0.9em;
 }
+.cm-qtable {
+  margin: 4px 0;
+  overflow-x: auto;
+  font-size: 0.9em;
+}
+.cm-qtable table {
+  border-collapse: collapse;
+  min-width: 60%;
+}
+.cm-qtable th,
+.cm-qtable td {
+  border-bottom: 1px solid var(--fv-border);
+  padding: 4px 10px 4px 0;
+  text-align: left;
+  vertical-align: top;
+}
+.cm-qtable th button {
+  border: none;
+  background: none;
+  padding: 0;
+  font-weight: 600;
+  color: var(--fv-muted);
+}
+.cm-qtable-file {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--fv-accent);
+  text-align: left;
+}
+.cm-qtable-foot {
+  color: var(--fv-faint);
+  font-size: 0.85em;
+  padding-top: 4px;
+}
 .cm-embed-remote {
   font-size: 0.85em;
   padding: 2px 8px;
