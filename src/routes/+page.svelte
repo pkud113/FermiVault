@@ -450,6 +450,7 @@
     overflow: hidden;
   }
   aside {
+    grid-row: 1;
     position: relative;
     display: flex;
     flex-direction: column;
@@ -457,10 +458,14 @@
     min-width: 0;
     background: var(--fv-bg-2);
   }
+  /* Explicit columns: a hidden sidebar isn't rendered, and auto-placement would then move
+     the panes into its zero-width column. */
   .left {
+    grid-column: 1;
     border-right: 1px solid var(--fv-border);
   }
   .right {
+    grid-column: 3;
     border-left: 1px solid var(--fv-border);
   }
   .grip {
@@ -527,6 +532,8 @@
     color: var(--fv-text);
   }
   .panes {
+    grid-column: 2;
+    grid-row: 1;
     display: flex;
     min-width: 0;
     min-height: 0;
