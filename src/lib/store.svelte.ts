@@ -79,6 +79,8 @@ class App {
   firstSide = $state<"left" | "right">("left");
   palette = $state<PaletteMode | null>(null);
   showSettings = $state(false);
+  /** The Settings section shown when it opens (kept while the app runs). */
+  settingsSection = $state<"general" | "editor" | "ai" | "vault" | "sync" | "plugins">("general");
   settings = $state<Settings>(loadSettings());
   /** The note the focused editor last showed, with its text (outline, properties, word count).
    *  Read it through `activeDoc`, which is null when the active tab is something else. */

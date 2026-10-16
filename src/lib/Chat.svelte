@@ -65,7 +65,7 @@
       <div class="intro">
         <p><strong>{t("Chat with your notes.")}</strong> {t("Answers cite the notes they come from.")}</p>
         {#if !ai.ready}
-          <button class="primary" onclick={() => (app.showSettings = true)}>{t("Choose a model in Settings")}</button>
+          <button class="primary" onclick={() => ((app.settingsSection = "ai"), (app.showSettings = true))}>{t("Choose a model in Settings")}</button>
           <p class="hint">{t("Runs locally with Ollama or LM Studio, or any OpenAI-compatible API.")}</p>
         {:else}
           <p class="hint">{t("Model: {model}", { model: app.settings.aiModel })}</p>
