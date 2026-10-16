@@ -1,7 +1,8 @@
 <script lang="ts">
   import { setLanguage, t } from "$lib/i18n.svelte";
   import { tk } from "$lib/tk";
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
+  import { startup } from "$lib/startup";
   import { listen } from "@tauri-apps/api/event";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { ask, open as pickFolder } from "@tauri-apps/plugin-dialog";
@@ -245,9 +246,10 @@
       }),
     ];
     performance.mark("mounted");
-    api.lastVault().then(async (v) => {
-      if (v) await app.openVault(v);
+    startup.then(async () => {
       ready = true;
+      await tick();
+      performance.mark("rendered");
       requestAnimationFrame(() => {
         api.benchReady(); // marks "ready" for the startup budget in CI
         loadEditor().then((m) => (Editor = m.default));
