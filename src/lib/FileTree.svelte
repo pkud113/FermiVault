@@ -158,6 +158,7 @@
   {@const dir = target ? (target.dir ? target.path : dirname(target.path)) : ""}
   <div class="menu" style="left:{menu.x}px; top:{menu.y}px" role="menu" tabindex="-1" use:menuKeys={() => ((menu?.from?.focus()), (menu = null))}>
     <button role="menuitem" onclick={() => app.newNote(dir)}>New note</button>
+    <button role="menuitem" onclick={() => app.newCanvas(dir)}>New canvas</button>
     <button role="menuitem" onclick={() => newFolder(dir)}>New folder</button>
     {#if target}
       {#if !target.dir}<button role="menuitem" onclick={() => app.open(target.path, true)}>Open in new tab</button>{/if}

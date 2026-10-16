@@ -3,6 +3,7 @@ import type { EditorState, TransactionSpec } from "@codemirror/state";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { api, basename, dirname, fillTemplate, join, type Entry, type VaultConfig } from "./api";
 import { moved, serial, type Doc } from "./docs";
+import { serializeCanvas } from "./canvas";
 import { host } from "./widgets";
 
 export type Settings = {
@@ -21,15 +22,19 @@ export type Settings = {
 export type Pane = { tabs: string[]; active: number };
 export type Command = { id: string; name: string; keys?: string; run: () => unknown };
 export type PickItem = { label: string; detail?: string; run: (newTab: boolean) => unknown };
-/** What the app needs from each mounted editor pane to keep saves in step with file operations. */
-export type EditorHandle = {
-  readonly view: EditorView;
-  /** Saves every note open in the pane; false if any save failed (its edits stay in the editor). */
+/** Anything holding unsaved file edits (editor panes, canvases), kept in step with file operations. */
+export type Saver = {
+  /** Saves everything it has open; false if any save failed (its edits are kept). */
   flush(): Promise<boolean>;
   /** A file or folder moved: follow it instead of saving to the old path. */
   renamed(from: string, to: string): void;
-  /** Never write notes at or under `path` again (`null`: all of them, the vault is closing). */
+  /** Never write files at or under `path` again (`null`: all of them, the vault is closing). */
   closed(path: string | null): void;
+};
+
+/** What the app needs from each mounted editor pane. */
+export type EditorHandle = Saver & {
+  readonly view: EditorView;
   /** The note on screen; null while one is loading. */
   doc(): Doc<EditorState> | null;
   /** Edits `d` whether or not it's still on screen; false if it was closed (trashed, vault switched). */
@@ -82,6 +87,11 @@ class App {
   /** Live editor per pane, for commands like outline jump. */
   views: (EditorView | undefined)[] = [];
   editors = new Set<EditorHandle>();
+  /** Other open files with pending saves (canvases). */
+  savers = new Set<Saver>();
+  private get allSavers(): Saver[] {
+    return [...this.editors, ...this.savers];
+  }
 
   notes = $derived(this.files.filter((f) => !f.dir && f.path.endsWith(".md")).map((f) => f.path));
 
@@ -118,7 +128,7 @@ class App {
 
   /** Saves every open note; false if any save failed. */
   async flush() {
-    return (await Promise.all([...this.editors].map((e) => e.flush()))).every(Boolean);
+    return (await Promise.all(this.allSavers.map((e) => e.flush()))).every(Boolean);
   }
 
   async openVault(path: string) {
@@ -129,7 +139,7 @@ class App {
       // Inside the write queue: no save can run between the switch and closing the old notes.
       await serial(async () => {
         const root = await api.openVault(path);
-        for (const e of this.editors) e.closed(null);
+        for (const e of this.allSavers) e.closed(null);
         this.panes = [{ tabs: [], active: 0 }];
         this.focus = 0;
         this.root = root;
@@ -167,6 +177,10 @@ class App {
   async openLink(target: string, newTab = false) {
     const resolved = await api.resolve(target);
     if (resolved) return this.open(resolved, newTab);
+    // Links to existing non-note files (canvases, PDFs, images) open them instead of creating a note.
+    const t = target.toLowerCase();
+    const file = this.files.find((f) => !f.dir && !f.path.endsWith(".md") && (f.path.toLowerCase() === t || f.path.toLowerCase().endsWith("/" + t)));
+    if (file) return this.open(file.path, newTab);
     const path = target.endsWith(".md") ? target : `${target}.md`;
     await api.create(path, "");
     await this.refreshFiles();
@@ -254,6 +268,13 @@ class App {
     });
   }
 
+  async newCanvas(dir = "") {
+    const path = this.untitled(dir, ".canvas");
+    await api.create(path, serializeCanvas({ nodes: [], edges: [] })).catch((e) => (this.error = String(e)));
+    await this.refreshFiles();
+    this.open(path, true);
+  }
+
   async newNote(dir = "") {
     const path = this.untitled(dir);
     await api.create(path);
@@ -267,7 +288,7 @@ class App {
     try {
       await serial(async () => {
         await api.rename(from, to);
-        for (const e of this.editors) e.renamed(from, to);
+        for (const e of this.allSavers) e.renamed(from, to);
         this.renamed(from, to);
       });
       await this.refreshFiles();
@@ -291,7 +312,7 @@ class App {
     try {
       await serial(async () => {
         await api.trash(path);
-        for (const e of this.editors) e.closed(path);
+        for (const e of this.allSavers) e.closed(path);
         this.removed(path);
       });
       await this.refreshFiles();
@@ -305,10 +326,10 @@ class App {
   }
 
   /** A fresh "Untitled N.md" path in `dir`. */
-  untitled(dir = ""): string {
-    const taken = new Set(this.notes.map((n) => n.toLowerCase()));
+  untitled(dir = "", ext = ".md"): string {
+    const taken = new Set(this.files.map((f) => f.path.toLowerCase()));
     for (let i = 0; ; i++) {
-      const name = `${dir ? dir + "/" : ""}Untitled${i ? " " + i : ""}.md`;
+      const name = `${dir ? dir + "/" : ""}Untitled${i ? " " + i : ""}${ext}`;
       if (!taken.has(name.toLowerCase())) return name;
     }
   }
