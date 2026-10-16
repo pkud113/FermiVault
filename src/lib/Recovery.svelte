@@ -1,5 +1,6 @@
 <script lang="ts">
   import { api, basename, type Snapshot } from "./api";
+  import { serial } from "./docs";
   import { app } from "./store.svelte";
 
   const path = app.recovery!;
@@ -22,7 +23,9 @@
     if (!sel) return;
     busy = true;
     try {
-      await api.restoreSnapshot(path, sel.id);
+      // Save open edits first: restoring snapshots them, so they can be restored too.
+      if (!(await app.flush())) throw new Error("Couldn't save open notes first; nothing was restored.");
+      await serial(() => api.restoreSnapshot(path, sel!.id));
       app.version++; // open editors re-read the file
       app.recovery = null;
     } catch (e) {

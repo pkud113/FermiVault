@@ -5,24 +5,32 @@
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { createState, modeExtension, previewMode, type LinkHandler } from "./editor";
   import { api, dirname } from "./api";
-  import { app } from "./store.svelte";
+  import { PaneDocs, saveDoc, type Doc } from "./docs";
+  import { app, type EditorHandle } from "./store.svelte";
 
   let { pane, path }: { pane: number; path: string } = $props();
 
   let host: HTMLDivElement;
   let view: EditorView;
-  /** Per-pane state cache keeps undo history and cursor across tab switches. */
-  const cache = new Map<string, EditorState>();
-  let current: string | null = null;
-  let saved = ""; // what we last read from / wrote to disk
   let timer: ReturnType<typeof setTimeout> | undefined;
-  let loading = false;
+
+  const text = (s: EditorState) => s.doc.toString();
+  const options = () => ({ live: app.settings.livePreview, onLink: () => onLink });
+
+  /** Notes open in this pane; each keeps its undo history, cursor and unsaved edits across tab switches. */
+  const docs = new PaneDocs<EditorState>({
+    read: api.read,
+    create: (t) => createState(t, options()),
+    text,
+    vault: () => app.root ?? "",
+    save: (d) => persist(d),
+  });
 
   const onLink: LinkHandler = (target, kind, newTab) => {
     if (kind === "url") return void openUrl(target);
     if (kind === "md") {
       // Relative to this note's folder.
-      const parts = (dirname(current ?? "") + "/" + target).split("/");
+      const parts = (dirname(docs.doc?.path ?? "") + "/" + target).split("/");
       const out: string[] = [];
       for (const p of parts) p === ".." ? out.pop() : p && p !== "." && out.push(p);
       target = out.join("/");
@@ -31,25 +39,51 @@
     if (note) app.openLink(note, newTab);
   };
 
-  const options = () => ({ live: app.settings.livePreview, onLink: () => onLink });
-
   function publish() {
     if (app.focus === pane) app.docText = view.state.doc.toString();
+  }
+
+  /** Queues a save of `d`. On failure the edits stay in the doc and are retried every few seconds. */
+  function persist(d: Doc<EditorState>): Promise<boolean> {
+    clearTimeout(d.retry);
+    return saveDoc(d, text, api.write).then(
+      () => true,
+      (e) => {
+        if (d.closed) return false;
+        app.error = `Couldn't save ${d.path}: ${e}. Your changes are kept and FermiVault keeps retrying.`;
+        d.retry = setTimeout(() => persist(d), 5000);
+        return false;
+      },
+    );
   }
 
   function save() {
     clearTimeout(timer);
     timer = undefined;
-    if (!current) return;
-    const text = view.state.doc.toString();
-    if (text === saved) return;
-    saved = text;
-    api.write(current, text).catch((e) => (app.error = `Save failed: ${e}`));
+    return docs.doc ? persist(docs.doc) : Promise.resolve(true);
   }
+
+  const handle: EditorHandle = {
+    get view() {
+      return view;
+    },
+    async flush() {
+      clearTimeout(timer);
+      timer = undefined;
+      return (await Promise.all(docs.docs.map(persist))).every(Boolean);
+    },
+    renamed(from, to) {
+      const reload = docs.renamed(from, to);
+      if (reload) load(reload); // a read of the old path was still in flight
+    },
+    closed(path) {
+      docs.closed(path);
+    },
+  };
 
   function applyJump() {
     const j = app.jump;
-    if (!j || loading || j.path !== current || app.focus !== pane) return;
+    if (!j || !docs.doc || j.path !== docs.doc.path || app.focus !== pane) return;
     app.jump = null;
     const line = view.state.doc.line(Math.min(Math.max(j.line, 1), view.state.doc.lines));
     view.dispatch({ selection: { anchor: line.from }, effects: EditorView.scrollIntoView(line.from, { y: "center" }) });
@@ -57,24 +91,18 @@
   }
 
   async function load(p: string) {
-    save();
-    if (current) cache.set(current, view.state);
-    current = p;
-    loading = true;
-    let text: string;
-    try {
-      text = await api.read(p);
-    } catch (e) {
-      app.error = String(e);
+    clearTimeout(timer);
+    timer = undefined;
+    const r = await docs.open(p);
+    if (!r) return; // superseded by a later switch
+    if ("error" in r) {
+      app.error = String(r.error);
+      view.setState(createState("", options())); // don't leave the previous note's text under this tab
       return;
-    } finally {
-      if (current === p) loading = false;
     }
-    if (current !== p) return; // user switched again while reading
-    const cached = cache.get(p);
-    view.setState(cached && cached.doc.toString() === text ? cached : createState(text, options()));
+    if (docs.doc !== r.doc) return;
+    view.setState(r.doc.state);
     view.dispatch({ effects: previewMode.reconfigure(modeExtension(app.settings.livePreview)) });
-    saved = text;
     publish();
     if (app.focus === pane) view.focus();
     applyJump();
@@ -82,13 +110,13 @@
 
   /** Disk changed (agent, sync tool, other pane): adopt it unless we have unsaved edits. */
   async function reloadIfChanged() {
-    if (!current || timer) return;
-    const p = current;
-    const text = await api.read(p).catch(() => null);
-    if (text === null || p !== current || timer || text === saved || view.state.doc.toString() !== saved) return;
-    saved = text;
-    const head = Math.min(view.state.selection.main.head, text.length);
-    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text }, selection: { anchor: head } });
+    const d = docs.doc;
+    if (!d || timer) return;
+    const disk = await api.read(d.path).catch(() => null);
+    if (disk === null || d !== docs.doc || timer || disk === d.saved || text(d.state) !== d.saved) return;
+    d.saved = disk;
+    const head = Math.min(view.state.selection.main.head, disk.length);
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: disk }, selection: { anchor: head } });
     publish();
   }
 
@@ -97,7 +125,11 @@
       parent: host,
       state: createState("", options()),
       dispatchTransactions(trs: readonly Transaction[], v: EditorView) {
+        const d = docs.doc;
+        // While a note loads, the view still shows the previous one: edits would land in no file.
+        if (!d && trs.some((t) => t.docChanged)) return;
         v.update(trs);
+        if (d) d.state = v.state;
         if (trs.some((t) => t.docChanged)) {
           clearTimeout(timer);
           timer = setTimeout(() => {
@@ -108,16 +140,19 @@
       },
     });
     app.views[pane] = view;
+    app.editors.add(handle);
     load(path);
   });
 
   onDestroy(() => {
-    save();
+    clearTimeout(timer);
+    for (const d of docs.docs) persist(d); // pane closing: queue every unsaved note (saves use the doc, not the view)
+    app.editors.delete(handle);
     view?.destroy();
   });
 
   $effect(() => {
-    if (view && path !== current) load(path);
+    if (view && path !== docs.target) load(path);
   });
   $effect(() => {
     app.version;

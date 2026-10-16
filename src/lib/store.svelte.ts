@@ -1,6 +1,7 @@
 import type { EditorView } from "@codemirror/view";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { api, basename, dirname, fillTemplate, join, type Entry, type VaultConfig } from "./api";
+import { moved, serial } from "./docs";
 import { host } from "./widgets";
 
 export type Settings = {
@@ -15,6 +16,16 @@ export type Settings = {
 export type Pane = { tabs: string[]; active: number };
 export type Command = { id: string; name: string; keys?: string; run: () => unknown };
 export type PickItem = { label: string; detail?: string; run: (newTab: boolean) => unknown };
+/** What the app needs from each mounted editor pane to keep saves in step with file operations. */
+export type EditorHandle = {
+  readonly view: EditorView;
+  /** Saves every note open in the pane; false if any save failed (its edits stay in the editor). */
+  flush(): Promise<boolean>;
+  /** A file or folder moved: follow it instead of saving to the old path. */
+  renamed(from: string, to: string): void;
+  /** Never write notes at or under `path` again (`null`: all of them, the vault is closing). */
+  closed(path: string | null): void;
+};
 export type PaletteMode =
   | { kind: "switcher" }
   | { kind: "commands" }
@@ -59,6 +70,7 @@ class App {
   jump = $state<{ path: string; line: number } | null>(null);
   /** Live editor per pane, for commands like outline jump. */
   views: (EditorView | undefined)[] = [];
+  editors = new Set<EditorHandle>();
 
   notes = $derived(this.files.filter((f) => !f.dir && f.path.endsWith(".md")).map((f) => f.path));
 
@@ -73,11 +85,24 @@ class App {
     } catch {}
   }
 
+  /** Saves every open note; false if any save failed. */
+  async flush() {
+    return (await Promise.all([...this.editors].map((e) => e.flush()))).every(Boolean);
+  }
+
   async openVault(path: string) {
+    if (this.root && !(await this.flush())) {
+      return void (this.error = "Some notes couldn't be saved, so the vault wasn't switched. Their edits are still open.");
+    }
     try {
-      this.root = await api.openVault(path);
-      this.panes = [{ tabs: [], active: 0 }];
-      this.focus = 0;
+      // Inside the write queue: no save can run between the switch and closing the old notes.
+      await serial(async () => {
+        const root = await api.openVault(path);
+        for (const e of this.editors) e.closed(null);
+        this.panes = [{ tabs: [], active: 0 }];
+        this.focus = 0;
+        this.root = root;
+      });
       this.config = await api.config();
       await this.refreshFiles();
     } catch (e) {
@@ -137,7 +162,7 @@ class App {
 
   /** Keeps tabs and bookmarks pointing at the right file after a rename/move. */
   renamed(from: string, to: string) {
-    const move = (t: string) => (t === from ? to : t.startsWith(from + "/") ? to + t.slice(from.length) : t);
+    const move = (t: string) => moved(t, from, to);
     for (const p of this.panes) p.tabs = p.tabs.map(move);
     if (this.config.bookmarks?.some((b) => move(b) !== b)) this.saveConfig({ bookmarks: this.config.bookmarks.map(move) });
   }
@@ -206,9 +231,14 @@ class App {
   }
 
   async move(from: string, to: string) {
+    // Save first so link rewrites see the latest text of every open note.
+    if (!(await this.flush())) return void (this.error = "Some notes couldn't be saved, so nothing was renamed.");
     try {
-      await api.rename(from, to);
-      this.renamed(from, to);
+      await serial(async () => {
+        await api.rename(from, to);
+        for (const e of this.editors) e.renamed(from, to);
+        this.renamed(from, to);
+      });
       await this.refreshFiles();
     } catch (e) {
       this.error = String(e);
@@ -226,9 +256,13 @@ class App {
 
   async remove(path: string) {
     if (!(await ask(`Move "${path}" to the vault trash (.fermi/trash)?`, { title: "Delete", kind: "warning" }))) return;
+    if (!(await this.flush())) return void (this.error = "Some notes couldn't be saved, so nothing was deleted.");
     try {
-      await api.trash(path);
-      this.removed(path);
+      await serial(async () => {
+        await api.trash(path);
+        for (const e of this.editors) e.closed(path);
+        this.removed(path);
+      });
       await this.refreshFiles();
     } catch (e) {
       this.error = String(e);
