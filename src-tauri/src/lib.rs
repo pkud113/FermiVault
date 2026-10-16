@@ -83,6 +83,15 @@ fn git_trusted(app: &tauri::AppHandle, vault: &Vault) -> bool {
     device_settings(app, vault).is_ok_and(|d| d.get("gitTrusted") == Some(&Value::Bool(true)))
 }
 
+/// Startup benchmark (scripts/bench-startup.ps1): when `FERMIVAULT_BENCH_READY` names a file,
+/// the first frame with the vault open creates it. Does nothing otherwise.
+#[tauri::command]
+async fn bench_ready() {
+    if let Some(p) = std::env::var_os("FERMIVAULT_BENCH_READY") {
+        let _ = std::fs::write(p, "");
+    }
+}
+
 #[tauri::command]
 async fn last_vault(app: tauri::AppHandle) -> Option<String> {
     let text = std::fs::read_to_string(state_file(&app).ok()?).ok()?;
@@ -394,8 +403,8 @@ async fn tagged(state: State<'_, AppState>, tag: String) -> Res<Vec<String>> {
     state.get()?.ix.lock().unwrap().tagged(&tag)
 }
 
-#[tauri::command]
 /// The vault's settings, with this device's (plugins, Git) in place of any the vault carries.
+#[tauri::command]
 async fn vault_config(app: tauri::AppHandle, state: State<'_, AppState>) -> Res<serde_json::Value> {
     let v = &state.get()?.vault;
     let mut c = v.config();
@@ -461,6 +470,7 @@ pub fn run() {
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
             last_vault,
+            bench_ready,
             open_vault,
             list_files,
             read_note,

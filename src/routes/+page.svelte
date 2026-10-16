@@ -246,6 +246,7 @@
     api.lastVault().then(async (v) => {
       if (v) await app.openVault(v);
       ready = true;
+      requestAnimationFrame(() => api.benchReady()); // marks "ready" for the startup budget in CI
     });
     return () => unlisten.forEach((u) => u.then((f) => f()));
   });

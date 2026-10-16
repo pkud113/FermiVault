@@ -25,6 +25,7 @@ export type AiApp = { id: string; name: string; file: string; detected: boolean;
 
 export const api = {
   lastVault: () => invoke<string | null>("last_vault"),
+  benchReady: () => invoke<void>("bench_ready"),
   openVault: (path: string) => invoke<string>("open_vault", { path }),
   listFiles: () => invoke<Entry[]>("list_files"),
   read: (path: string) => invoke<string>("read_note", { path }),
