@@ -223,6 +223,8 @@ const openNote = async (name) => {
   for (const type of ["keyDown", "keyUp"]) {
     await send("Input.dispatchKeyEvent", { type, key: "End", code: "End", windowsVirtualKeyCode: 35, modifiers: 2 });
   }
+  await sleep(300);
+  await js(`document.querySelector(".cm-scroller").scrollTop = 0`);
 };
 
 try {

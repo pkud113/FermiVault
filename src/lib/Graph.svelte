@@ -51,7 +51,7 @@
     const color = (v: string) => css.getPropertyValue(v).trim();
     const [accent, node, edge, text] = [color("--fv-accent"), color("--fv-faint"), color("--fv-border"), color("--fv-text")];
     g.forEachNode((n) =>
-      g.mergeNodeAttributes(n, { size: 3 + Math.sqrt(g.degree(n)) * 2, color: n === app.activePath ? accent : node }),
+      g.mergeNodeAttributes(n, { size: 4 + Math.sqrt(g.degree(n)) * 2.5, color: n === app.activePath ? accent : node }),
     );
     g.forEachEdge((e) => g.mergeEdgeAttributes(e, { color: edge, size: 1 }));
 
@@ -61,8 +61,8 @@
     const settings = { ...fa2.inferSettings(g), barnesHutOptimize: g.order > 500 };
     if (fresh && g.order <= 400) fa2.assign(g, { iterations: 250, settings });
     renderer = new Sigma(g, container, {
-      // Sizes in screen pixels (sigma 4 defaults to graph units, which makes small vaults' nodes huge).
-      settings: { labelRenderedSizeThreshold: local ? 0 : 7, renderEdgeLabels: false, stagePadding: 24, itemSizesReference: "screen" },
+      // Sizes in screen pixels (sigma 4 defaults to graph units: huge nodes in small vaults); every label in small graphs.
+      settings: { labelRenderedSizeThreshold: local || g.order < 200 ? 0 : 7, renderEdgeLabels: false, stagePadding: 24, itemSizesReference: "screen" },
       nodeReducer: (n, d) => {
         const near = !hovered || n === hovered || g.areNeighbors(n, hovered);
         return { ...d, labelColor: text, color: near ? d.color : edge, label: near ? d.label : "" };
