@@ -26,8 +26,15 @@ Local development and the performance-budget builds do not use Azure signing.
    | Field | Value |
    |---|---|
    | Issuer | `https://token.actions.githubusercontent.com` |
-   | Subject | `repo:pkud113/FermiVault:environment:windows-signing` |
+   | Subject | `repo:pkud113@181017732/FermiVault@1419909799:environment:windows-signing` |
    | Audience | `api://AzureADTokenExchange` |
+
+   FermiVault uses GitHub's immutable subject format. In the portal's GitHub
+   scenario, use owner `pkud113`, owner ID `181017732`, repository `FermiVault`,
+   repository ID `1419909799`, and entity type **Environment** with value
+   `windows-signing`. Verify the current prefix with
+   `gh api repos/pkud113/FermiVault/actions/oidc/customization/sub` if the
+   repository's OIDC configuration changes.
 
 4. Grant that application's service principal the **Artifact Signing Certificate
    Profile Signer** role on the Public Trust certificate profile. Do not grant
