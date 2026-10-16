@@ -22,6 +22,7 @@
   import { MAX_PANEL, MIN_PANEL, clampPanel, sidebars } from "$lib/ui";
   import { tabKeys } from "$lib/modal";
   import { refreshTables } from "$lib/widgets";
+  import { emit, stopAll, syncPlugins } from "$lib/plugins";
 
   let ready = $state(false);
   let leftW = $state(260);
@@ -154,6 +155,28 @@
     return m < 1 ? "just now" : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`;
   };
 
+  // Plugins start once the app is idle, so they never slow startup. A new vault stops the old
+  // vault's plugins; changing plugin settings starts or stops them.
+  let pluginRoot: string | null = null;
+  $effect(() => {
+    const root = app.root;
+    $state.snapshot(app.config.plugins);
+    if (root !== pluginRoot) (stopAll(), (pluginRoot = root));
+    if (!root) return;
+    const idle = requestIdleCallback(() => syncPlugins(), { timeout: 3000 });
+    return () => cancelIdleCallback(idle);
+  });
+  $effect(() => {
+    const path = app.activePath;
+    if (path) emit("file-open", { path });
+  });
+  $effect(() => {
+    if (app.notice) {
+      const t = setTimeout(() => (app.notice = null), 6000);
+      return () => clearTimeout(t);
+    }
+  });
+
   // Tables in notes show live results: re-run them when files change.
   $effect(() => {
     app.version;
@@ -200,7 +223,8 @@
     let refresh: ReturnType<typeof setTimeout>;
     const unlisten = [
       // Coalesce bursts (git checkout, agent batch edits) into one refresh.
-      listen("vault-changed", () => {
+      listen<string[]>("vault-changed", (e) => {
+        emit("vault-change", { paths: e.payload });
         clearTimeout(refresh);
         refresh = setTimeout(() => app.refreshFiles(), 200);
       }),
@@ -356,10 +380,16 @@
 {/if}
 
 {#if app.palette}
-  {#key app.palette}<Palette {commands} />{/key}
+  {#key app.palette}<Palette commands={[...commands, ...app.pluginCommands]} />{/key}
 {/if}
 {#if app.showSettings}<Settings />{/if}
 {#if app.recovery}<Recovery />{/if}
+{#if app.notice && !app.error}
+  <div class="toast info" role="status">
+    {app.notice}
+    <button aria-label="Dismiss" onclick={() => (app.notice = null)}>✕</button>
+  </div>
+{/if}
 {#if app.error}
   <div class="toast" role="alert">
     {app.error}
@@ -640,6 +670,9 @@
     align-items: flex-start;
     box-shadow: var(--fv-shadow);
     z-index: 200;
+  }
+  .toast.info {
+    border-color: var(--fv-border);
   }
   .toast button {
     border: none;

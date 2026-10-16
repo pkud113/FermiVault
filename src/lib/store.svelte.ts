@@ -82,6 +82,10 @@ class App {
   /** Bumped whenever files change on disk; panels re-query on change. */
   version = $state(0);
   error = $state<string | null>(null);
+  /** An informational message (plugins), shown like errors but neutral. */
+  notice = $state<string | null>(null);
+  /** Commands added by running plugins (shown in the palette). */
+  pluginCommands = $state<Command[]>([]);
   /** Git sync state, for the footer and Settings. */
   sync = $state<{ busy: boolean; last?: number; error?: string }>({ busy: false });
   /** Pending cursor jump, consumed by the editor showing that note. */
