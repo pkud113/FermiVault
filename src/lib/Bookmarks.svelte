@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "./i18n.svelte";
   import { basename, dirname } from "./api";
   import { app } from "./store.svelte";
 </script>
@@ -9,10 +10,10 @@
       <button class="open" onclick={(e) => app.open(path, e.ctrlKey || e.metaKey)} title={path}>
         {basename(path)} <span class="dir">{dirname(path)}</span>
       </button>
-      <button class="x" aria-label="Remove bookmark" onclick={() => app.toggleBookmark(path)}>✕</button>
+      <button class="x" aria-label={t("Remove bookmark")} onclick={() => app.toggleBookmark(path)}>✕</button>
     </div>
   {:else}
-    <div class="empty">No bookmarks. Use “Bookmark current note” in the command palette (Ctrl+P) or the file menu.</div>
+    <div class="empty">{t("No bookmarks. Use “Bookmark current note” in the command palette (Ctrl+P) or the file menu.")}</div>
   {/each}
 </div>
 

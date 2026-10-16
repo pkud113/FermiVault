@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { LANGUAGES, t } from "./i18n.svelte";
   import { app } from "./store.svelte";
   import AiSettings from "./AiSettings.svelte";
   import SyncSettings from "./SyncSettings.svelte";
@@ -7,53 +8,60 @@
 </script>
 
 <div class="backdrop" role="presentation" onmousedown={(e) => e.target === e.currentTarget && (app.showSettings = false)}>
-  <div class="dialog" role="dialog" aria-modal="true" aria-label="Settings" tabindex="-1" use:modal={() => (app.showSettings = false)}>
+  <div class="dialog" role="dialog" aria-modal="true" aria-label={t("Settings")} tabindex="-1" use:modal={() => (app.showSettings = false)}>
     <div class="head">
-      <h3>Settings</h3>
-      <button onclick={() => (app.showSettings = false)} aria-label="Close">✕</button>
+      <h3>{t("Settings")}</h3>
+      <button onclick={() => (app.showSettings = false)} aria-label={t("Close")}>✕</button>
     </div>
     <label>
-      <span>Theme</span>
-      <select bind:value={app.settings.theme}>
-        <option value="system">System</option>
-        <option value="light">Light</option>
-        <option value="dark">Dark</option>
+      <span>{t("Language")}</span>
+      <select bind:value={app.settings.language}>
+        <option value="system">{t("System")}</option>
+        {#each Object.entries(LANGUAGES) as [code, name]}<option value={code}>{name}</option>{/each}
       </select>
     </label>
     <label>
-      <span>Font size</span>
+      <span>{t("Theme")}</span>
+      <select bind:value={app.settings.theme}>
+        <option value="system">{t("System")}</option>
+        <option value="light">{t("Light")}</option>
+        <option value="dark">{t("Dark")}</option>
+      </select>
+    </label>
+    <label>
+      <span>{t("Font size")}</span>
       <input type="number" min="11" max="28" bind:value={app.settings.fontSize} />
     </label>
     <label>
-      <span>Live preview <small>Hide Markdown syntax away from the cursor (Ctrl+E toggles)</small></span>
+      <span>{t("Live preview")} <small>{t("Hide Markdown syntax away from the cursor (Ctrl+E toggles)")}</small></span>
       <input type="checkbox" bind:checked={app.settings.livePreview} />
     </label>
     <label>
-      <span>Readable line width <small>Limit text to a comfortable column</small></span>
+      <span>{t("Readable line width")} <small>{t("Limit text to a comfortable column")}</small></span>
       <input type="checkbox" bind:checked={app.settings.readableWidth} />
     </label>
     <label>
-      <span>Vim key bindings <small>Normal, insert and visual modes; <code>:w</code> saves</small></span>
+      <span>{t("Vim key bindings")} <small>{t("Normal, insert and visual modes;")} <code>:w</code> {t("saves")}</small></span>
       <input type="checkbox" bind:checked={app.settings.vim} />
     </label>
     <label>
-      <span>Load web images automatically <small>Off: images from the web wait for a click, so opening a note never contacts other servers</small></span>
+      <span>{t("Load web images automatically")} <small>{t("Off: images from the web wait for a click, so opening a note never contacts other servers")}</small></span>
       <input type="checkbox" bind:checked={app.settings.remoteImages} />
     </label>
     <AiSettings />
-    <h4>This vault</h4>
+    <h4>{t("This vault")}</h4>
     <label>
-      <span>Daily notes folder</span>
+      <span>{t("Daily notes folder")}</span>
       <input value={app.config.dailyFolder ?? "daily"} onchange={(e) => app.saveConfig({ dailyFolder: e.currentTarget.value.trim() || "daily" })} />
     </label>
     <label>
-      <span>Web clipper folder <small>Where “Clip web page” saves articles</small></span>
+      <span>{t("Web clipper folder")} <small>{t("Where “Clip web page” saves articles")}</small></span>
       <input value={app.config.clipFolder ?? "Clippings"} onchange={(e) => app.saveConfig({ clipFolder: e.currentTarget.value.trim() || "Clippings" })} />
     </label>
     <SyncSettings />
     <PluginSettings />
     <label>
-      <span>Daily note template <small>Path of a note; leave empty for none</small></span>
+      <span>{t("Daily note template")} <small>{t("Path of a note; leave empty for none")}</small></span>
       <input
         value={app.config.dailyTemplate ?? ""}
         placeholder="templates/Daily.md"
@@ -61,14 +69,14 @@
       />
     </label>
     <label>
-      <span>Templates folder <small>{"{{title}}, {{date}} and {{time}} are filled in"}</small></span>
+      <span>{t("Templates folder")} <small>{t("{a}, {b} and {c} are filled in", { a: "{{title}}", b: "{{date}}", c: "{{time}}" })}</small></span>
       <input
         value={app.config.templatesFolder ?? "templates"}
         onchange={(e) => app.saveConfig({ templatesFolder: e.currentTarget.value.trim() || "templates" })}
       />
     </label>
     <div class="vault">
-      <span>Location</span>
+      <span>{t("Location")}</span>
       <code>{app.root}</code>
     </div>
   </div>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "./i18n.svelte";
   import { ask } from "@tauri-apps/plugin-dialog";
   import { api, type PluginInfo } from "./api";
   import { PERMISSIONS, knownPermission } from "./pluginApi";
@@ -19,10 +20,12 @@
       return app.saveConfig({ plugins });
     }
     const perms = requested(p).filter(knownPermission);
-    const lines = perms.length ? perms.map((x) => `• ${PERMISSIONS[x]}`).join("\n") : "• Nothing beyond adding commands and showing messages";
+    const lines = perms.length ? perms.map((x) => `• ${t(PERMISSIONS[x])}`).join("\n") : `• ${t("Nothing beyond adding commands and showing messages")}`;
     const ok = await ask(
-      `Enable “${pluginName(p)}”? It will be able to:\n${lines}\n\nPlugins run in a sandbox with no network access and can't touch anything else on your computer. Only enable plugins you trust.`,
-      { title: "Enable plugin", kind: "warning", okLabel: "Enable", cancelLabel: "Cancel" },
+      t("Enable “{plugin}”? It will be able to:", { plugin: pluginName(p) }) +
+        `\n${lines}\n\n` +
+        t("Plugins run in a sandbox with no network access and can't touch anything else on your computer. Only enable plugins you trust."),
+      { title: t("Enable plugin"), kind: "warning", okLabel: t("Enable"), cancelLabel: t("Cancel") },
     );
     if (!ok) return;
     plugins[p.id] = { enabled: true, permissions: perms };
@@ -32,10 +35,10 @@
 
 <div class="block">
   <div class="title">
-    Plugins <small>Add a plugin by putting its folder in <code>.fermi/plugins/</code> in this vault, then reload. Plugins run sandboxed, with the permissions you approve.</small>
+    {t("Plugins")} <small>{t("Add a plugin by putting its folder in")} <code>.fermi/plugins/</code> {t("in this vault, then reload. Plugins run sandboxed, with the permissions you approve.")}</small>
   </div>
   {#if !list}
-    <small>Loading…</small>
+    <small>{t("Loading…")}</small>
   {:else}
     {#each list as p (p.id)}
       {@const g = grant(p)}
@@ -50,19 +53,20 @@
           {:else}
             {#if typeof p.manifest?.description === "string"}<small>{p.manifest.description}</small>{/if}
             <small>
-              {#if requested(p).length}Asks to: {requested(p).map((x) => (knownPermission(x) ? PERMISSIONS[x].toLowerCase() : `“${x}” (unknown, ignored)`)).join("; ")}{:else}No permissions{/if}
+              {#if requested(p).length}{t("Asks to:")}
+                {requested(p).map((x) => (knownPermission(x) ? t(PERMISSIONS[x]) : t("“{name}” (unknown, ignored)", { name: String(x) }))).join("; ")}{:else}{t("No permissions")}{/if}
             </small>
             {#if g?.enabled && requested(p).some((x) => knownPermission(x) && !g.permissions.includes(x))}
-              <small class="err">Now asks for more than you approved; turn it off and on to review.</small>
+              <small class="err">{t("Now asks for more than you approved; turn it off and on to review.")}</small>
             {/if}
           {/if}
         </div>
-        <input type="checkbox" aria-label="Enable {pluginName(p)}" disabled={!!p.error} checked={!!g?.enabled} onchange={(e) => toggle(p, e.currentTarget.checked).then(load)} />
+        <input type="checkbox" aria-label={t("Enable {plugin}", { plugin: pluginName(p) })} disabled={!!p.error} checked={!!g?.enabled} onchange={(e) => toggle(p, e.currentTarget.checked).then(load)} />
       </div>
     {:else}
-      <small>No plugins installed. See <code>docs/PLUGINS.md</code> on GitHub to write one.</small>
+      <small>{t("No plugins installed. See")} <code>docs/PLUGINS.md</code> {t("on GitHub to write one.")}</small>
     {/each}
-    <button class="reload" onclick={load}>Reload list</button>
+    <button class="reload" onclick={load}>{t("Reload list")}</button>
   {/if}
 </div>
 

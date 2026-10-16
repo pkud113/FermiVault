@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "./i18n.svelte";
   // An infinite canvas over a JSON Canvas (.canvas) file. Loaded only when a canvas is opened.
   import { onDestroy, onMount } from "svelte";
   import type { EditorView } from "@codemirror/view";
@@ -54,7 +55,7 @@
       error = null;
       requestAnimationFrame(fit);
     } catch (e) {
-      error = `Can't open this canvas: ${e}. The file is left unchanged.`;
+      error = t("Can't open this canvas: {error}. The file is left unchanged.", { error: String(e) });
     }
   }
 
@@ -65,12 +66,12 @@
     if (!d) return Promise.resolve(true);
     return saveDoc(d, (s) => s, api.write).then(
       (conflict) => {
-        if (conflict) app.error = `${d.path} was also changed outside FermiVault. Your version is saved; the other one is in File recovery.`;
+        if (conflict) app.error = t("{path} was also changed outside FermiVault. Your version is saved; the other one is in File recovery.", { path: d.path });
         return true;
       },
       (e) => {
         if (d.closed) return false;
-        app.error = `Couldn't save ${d.path}: ${e}. Your changes are kept and FermiVault keeps retrying.`;
+        app.error = t("Couldn't save {path}: {error}. Your changes are kept and FermiVault keeps retrying.", { path: d.path, error: String(e) });
         timer = setTimeout(persist, 5000);
         return false;
       },
@@ -292,7 +293,7 @@
     const c = center();
     app.palette = {
       kind: "pick",
-      placeholder: "Add a note or file to the canvas…",
+      placeholder: t("Add a note or file to the canvas…"),
       items: app.files
         .filter((f) => !f.dir && f.path !== path)
         .map((f) => ({
@@ -307,9 +308,9 @@
   }
 
   async function addLink() {
-    const url = (await app.ask("Web address"))?.trim();
+    const url = (await app.ask(t("Web address")))?.trim();
     if (!url) return;
-    if (!/^https?:\/\//i.test(url)) return void (app.error = "Links must start with http:// or https://");
+    if (!/^https?:\/\//i.test(url)) return void (app.error = t("Links must start with http:// or https://"));
     const c = center();
     addNode({ type: "link", url, x: Math.round(c.x - 150), y: Math.round(c.y - 40), width: 300, height: 80 });
   }
@@ -319,7 +320,7 @@
     const b = inside.length ? bounds(inside) : { ...center(), width: 400, height: 300 };
     const pad = inside.length ? 30 : 0;
     const x = inside.length ? b.x - pad : b.x - 200, y = inside.length ? b.y - pad - 20 : b.y - 150;
-    addNode({ type: "group", label: "Group", x: Math.round(x), y: Math.round(y), width: Math.round(b.width + pad * 2), height: Math.round(b.height + pad * 2 + 20) });
+    addNode({ type: "group", label: t("Group"), x: Math.round(x), y: Math.round(y), width: Math.round(b.width + pad * 2), height: Math.round(b.height + pad * 2 + 20) });
   }
 
   function remove() {
@@ -401,7 +402,7 @@
       if (!alive) return;
       v = host.nested(t.slice(0, 4000), 1);
       el.append(v.dom);
-    }, () => (el.textContent = "Couldn't read this note."));
+    }, () => (el.textContent = t("Couldn't read this note.")));
     return { destroy: () => ((alive = false), v?.destroy()) };
   }
 
@@ -414,7 +415,13 @@
     }
   };
   const label = (n: CanvasNode) =>
-    n.type === "text" ? `Text card: ${(n.text ?? "").slice(0, 60) || "empty"}` : n.type === "file" ? `File: ${n.file}` : n.type === "link" ? `Link: ${n.url}` : `Group: ${n.label ?? ""}`;
+    n.type === "text"
+      ? t("Text card: {text}", { text: (n.text ?? "").slice(0, 60) || t("empty") })
+      : n.type === "file"
+        ? t("File: {file}", { file: n.file ?? "" })
+        : n.type === "link"
+          ? t("Link: {url}", { url: n.url ?? "" })
+          : t("Group: {label}", { label: n.label ?? "" });
 
   function edgeView(e: CanvasEdge) {
     const a = byId(e.fromNode), b = byId(e.toNode);
@@ -444,24 +451,24 @@
 </script>
 
 <div class="canvas">
-  <div class="toolbar" role="toolbar" aria-label="Canvas tools">
-    <button onclick={addText} title="Text card (or double-click the canvas)">＋ Text</button>
-    <button onclick={addFile} title="Add a note, image or file">＋ Note</button>
-    <button onclick={addLink}>＋ Link</button>
-    <button onclick={addGroup} title="Group the selection">Group</button>
+  <div class="toolbar" role="toolbar" aria-label={t("Canvas tools")}>
+    <button onclick={addText} title={t("Text card (or double-click the canvas)")}>{t("＋ Text")}</button>
+    <button onclick={addFile} title={t("Add a note, image or file")}>{t("＋ Note")}</button>
+    <button onclick={addLink}>{t("＋ Link")}</button>
+    <button onclick={addGroup} title={t("Group the selection")}>{t("Group")}</button>
     {#if selected.size || selectedEdge}
       <span class="sep"></span>
       {#each PRESETS as c, i}
-        <button class="swatch" style="--c:{c}" aria-label="Colour {i + 1}" onclick={() => setColor(String(i + 1))}></button>
+        <button class="swatch" style="--c:{c}" aria-label={t("Colour {n}", { n: i + 1 })} onclick={() => setColor(String(i + 1))}></button>
       {/each}
-      <button class="swatch none" aria-label="No colour" onclick={() => setColor(undefined)}></button>
-      <button onclick={remove} title="Delete (Del)">Delete</button>
+      <button class="swatch none" aria-label={t("No colour")} onclick={() => setColor(undefined)}></button>
+      <button onclick={remove} title={t("Delete (Del)")}>{t("Delete")}</button>
     {/if}
     <span class="spacer"></span>
-    <button onclick={() => zoomAt(1 / 1.2)} aria-label="Zoom out">−</button>
+    <button onclick={() => zoomAt(1 / 1.2)} aria-label={t("Zoom out")}>−</button>
     <span class="zoom">{Math.round(cam.zoom * 100)}%</span>
-    <button onclick={() => zoomAt(1.2)} aria-label="Zoom in">＋</button>
-    <button onclick={fit} title="Show everything">Fit</button>
+    <button onclick={() => zoomAt(1.2)} aria-label={t("Zoom in")}>＋</button>
+    <button onclick={fit} title={t("Show everything")}>{t("Fit")}</button>
   </div>
 
   {#if error}
@@ -475,7 +482,7 @@
     class:panning={drag?.kind === "pan"}
     bind:this={viewport}
     role="application"
-    aria-label="Canvas {basename(path)}. Arrow keys move the selection, Enter opens or edits it, Delete removes it."
+    aria-label={t("Canvas {name}. Arrow keys move the selection, Enter opens or edits it, Delete removes it.", { name: basename(path) })}
     tabindex="0"
     onpointerdown={backgroundDown}
     onpointermove={pointerMove}
@@ -533,20 +540,20 @@
           {:else if n.type === "text"}
             {#if editing === n.id}
               <!-- svelte-ignore a11y_autofocus -->
-              <textarea bind:value={n.text} autofocus onblur={() => ((editing = null), changed())} placeholder="Write Markdown…"></textarea>
+              <textarea bind:value={n.text} autofocus onblur={() => ((editing = null), changed())} placeholder={t("Write Markdown…")}></textarea>
             {:else}
               <div class="md" use:markdown={n.text ?? ""}></div>
             {/if}
           {:else if n.type === "file"}
             <div class="title">{basename(n.file ?? "")}</div>
             {#if !exists(n.file)}
-              <div class="missing">“{n.file}” not found</div>
+              <div class="missing">{t("“{file}” not found", { file: n.file ?? "" })}</div>
             {:else if kind(n.file!) === "image"}
               <img src={assetUrl(app.root ?? "", n.file!)} alt={n.file} draggable="false" />
             {:else if kind(n.file!) === "note"}
               {#key n.file}<div class="md" use:notePreview={n.file!}></div>{/key}
             {:else}
-              <div class="missing">Double-click to open</div>
+              <div class="missing">{t("Double-click to open")}</div>
             {/if}
           {:else}
             <div class="title">{host_(n.url)}</div>
@@ -555,7 +562,7 @@
 
           {#if selected.has(n.id) && selected.size === 1 && n.type !== "group"}
             {#each SIDES as s}
-              <div class="handle {s}" role="presentation" title="Drag to connect" onpointerdown={(e) => connectDown(e, n, s)}></div>
+              <div class="handle {s}" role="presentation" title={t("Drag to connect")} onpointerdown={(e) => connectDown(e, n, s)}></div>
             {/each}
           {/if}
           {#if selected.has(n.id)}
@@ -566,7 +573,7 @@
     </div>
 
     {#if !error && !shown.length}
-      <div class="hint">Double-click to add a text card, or use the toolbar to add notes and links.</div>
+      <div class="hint">{t("Double-click to add a text card, or use the toolbar to add notes and links.")}</div>
     {/if}
   </div>
 </div>

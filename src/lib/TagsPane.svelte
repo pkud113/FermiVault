@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "./i18n.svelte";
   import { api, basename } from "./api";
   import { app } from "./store.svelte";
 
@@ -21,7 +22,7 @@
 </script>
 
 <div class="wrap">
-  <input bind:value={filter} placeholder="Filter tags…" spellcheck="false" />
+  <input bind:value={filter} placeholder={t("Filter tags…")} spellcheck="false" />
   <div class="list">
     {#each shown as [tag, n] (tag)}
       <button class="tag" class:on={open === tag} onclick={() => (open = open === tag ? null : tag)}>
@@ -33,7 +34,7 @@
         {/each}
       {/if}
     {:else}
-      <div class="empty">{tags.length ? "No matching tags" : "No tags yet. Add #tags to notes or a tags: list in frontmatter."}</div>
+      <div class="empty">{tags.length ? t("No matching tags") : t("No tags yet. Add #tags to notes or a tags: list in frontmatter.")}</div>
     {/each}
   </div>
 </div>

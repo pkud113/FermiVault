@@ -1,3 +1,4 @@
+import { t } from "./i18n.svelte";
 import type { EditorView } from "@codemirror/view";
 import type { EditorState, TransactionSpec } from "@codemirror/state";
 import { ask } from "@tauri-apps/plugin-dialog";
@@ -18,6 +19,8 @@ export type Settings = {
   remoteImages: boolean;
   /** Vim key bindings in the editor. */
   vim: boolean;
+  /** Interface language: "system" or a code from LANGUAGES. */
+  language: string;
 };
 export type Pane = { tabs: string[]; active: number };
 export type Command = { id: string; name: string; keys?: string; run: () => unknown };
@@ -49,7 +52,7 @@ export type PaletteMode =
 /** Tab "path" for the global graph view. */
 export const GRAPH = "fermi:graph";
 
-const DEFAULTS: Settings = { theme: "system", fontSize: 16, livePreview: true, readableWidth: true, aiBaseUrl: "", aiModel: "", remoteImages: false, vim: false };
+const DEFAULTS: Settings = { theme: "system", fontSize: 16, livePreview: true, readableWidth: true, aiBaseUrl: "", aiModel: "", remoteImages: false, vim: false, language: "system" };
 
 function loadSettings(): Settings {
   try {
@@ -139,7 +142,7 @@ class App {
 
   async openVault(path: string) {
     if (this.root && !(await this.flush())) {
-      return void (this.error = "Some notes couldn't be saved, so the vault wasn't switched. Their edits are still open.");
+      return void (this.error = t("Some notes couldn't be saved, so the vault wasn't switched. Their edits are still open."));
     }
     try {
       // Inside the write queue: no save can run between the switch and closing the old notes.
@@ -251,11 +254,11 @@ class App {
     const ed = this.focusedEditor();
     const doc = ed?.doc();
     const templates = this.notes.filter((n) => n.startsWith(folder));
-    if (!ed || !doc) return void (this.error = "Open a note first, then insert a template.");
-    if (!templates.length) return void (this.error = `No templates yet. Add notes to the “${folder}” folder.`);
+    if (!ed || !doc) return void (this.error = t("Open a note first, then insert a template."));
+    if (!templates.length) return void (this.error = t("No templates yet. Add notes to the “{folder}” folder.", { folder }));
     this.palette = {
       kind: "pick",
-      placeholder: "Insert template…",
+      placeholder: t("Insert template…"),
       items: templates.map((t) => ({
         label: basename(t),
         detail: dirname(t),
@@ -279,16 +282,21 @@ class App {
     if (this.sync.busy || !this.root) return;
     this.sync = { ...this.sync, busy: true, error: undefined };
     try {
-      if (!(await this.flush())) throw new Error("some notes couldn't be saved first");
+      if (!(await this.flush())) throw new Error(t("some notes couldn't be saved first"));
       const r = await api.gitSync(!quiet);
       this.sync = { busy: false, last: Date.now() };
       if (r.conflicts.length) {
-        this.error = `Synced. ${r.conflicts.length} file(s) changed on both sides: your version is kept and the other is saved next to it as “(conflict …)”.`;
+        this.error = t(
+          r.conflicts.length === 1
+            ? "Synced. 1 file changed on both sides: your version is kept and the other is saved next to it as “(conflict …)”."
+            : "Synced. {n} files changed on both sides: your version is kept and the other is saved next to it as “(conflict …)”.",
+          { n: r.conflicts.length },
+        );
       }
       if (r.pulled || r.conflicts.length) await this.refreshFiles();
     } catch (e) {
       this.sync = { busy: false, last: this.sync.last, error: String(e) };
-      if (!quiet) this.error = `Sync failed: ${e}`;
+      if (!quiet) this.error = t("Sync failed: {error}", { error: String(e) });
     }
   }
 
@@ -305,7 +313,7 @@ class App {
       await this.refreshFiles();
       this.open(path, true);
     } catch (e) {
-      this.error = `Couldn't clip ${url}: ${e instanceof Error ? e.message : e}`;
+      this.error = t("Couldn't clip {url}: {error}", { url, error: e instanceof Error ? e.message : String(e) });
     }
   }
 
@@ -325,7 +333,7 @@ class App {
 
   async move(from: string, to: string) {
     // Save first so link rewrites see the latest text of every open note.
-    if (!(await this.flush())) return void (this.error = "Some notes couldn't be saved, so nothing was renamed.");
+    if (!(await this.flush())) return void (this.error = t("Some notes couldn't be saved, so nothing was renamed."));
     try {
       await serial(async () => {
         await api.rename(from, to);
@@ -341,15 +349,15 @@ class App {
   /** Prompts for a new name; notes keep their `.md` and links to them are rewritten. */
   async rename(path: string, dir = false) {
     const old = path.split("/").pop()!;
-    const name = await this.ask("Rename to", dir ? old : old.replace(/\.md$/, ""));
+    const name = await this.ask(t("Rename to"), dir ? old : old.replace(/\.md$/, ""));
     if (!name || name === old) return;
     const md = !dir && path.endsWith(".md") && !name.endsWith(".md");
     await this.move(path, join(dirname(path), md ? name + ".md" : name));
   }
 
   async remove(path: string) {
-    if (!(await ask(`Move "${path}" to the vault trash (.fermi/trash)?`, { title: "Delete", kind: "warning" }))) return;
-    if (!(await this.flush())) return void (this.error = "Some notes couldn't be saved, so nothing was deleted.");
+    if (!(await ask(t("Move “{path}” to the vault trash (.fermi/trash)?", { path }), { title: t("Delete"), kind: "warning" }))) return;
+    if (!(await this.flush())) return void (this.error = t("Some notes couldn't be saved, so nothing was deleted."));
     try {
       await serial(async () => {
         await api.trash(path);

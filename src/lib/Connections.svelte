@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "./i18n.svelte";
   import { api, type AiApp } from "./api";
   import { app } from "./store.svelte";
   import { modal } from "./modal";
@@ -35,24 +36,23 @@
 
 <div class="wrap">
   <p class="intro">
-    Let AI apps read, search and edit this vault through MCP. They stay separate apps: FermiVault only adds itself to
-    their MCP config. Restart the app after connecting.
+    {t("Let AI apps read, search and edit this vault through MCP. They stay separate apps: FermiVault only adds itself to their MCP config. Restart the app after connecting.")}
   </p>
   {#each sorted as a (a.id)}
     <div class="app" class:off={!a.detected}>
       <div class="info">
         <div class="name">
           {a.name}
-          {#if here(a)}<span class="badge ok">Connected</span>
-          {:else if a.connected}<span class="badge warn">Other vault</span>
-          {:else if !a.detected}<span class="badge">Not found</span>{/if}
+          {#if here(a)}<span class="badge ok">{t("Connected")}</span>
+          {:else if a.connected}<span class="badge warn">{t("Other vault")}</span>
+          {:else if !a.detected}<span class="badge">{t("Not found")}</span>{/if}
         </div>
-        {#if a.connected && !here(a)}<div class="sub">Points to {a.vault}</div>{/if}
+        {#if a.connected && !here(a)}<div class="sub">{t("Points to {vault}", { vault: a.vault ?? "" })}</div>{/if}
       </div>
       {#if here(a)}
-        <button disabled={busy} onclick={() => set(a, false)}>Disconnect</button>
+        <button disabled={busy} onclick={() => set(a, false)}>{t("Disconnect")}</button>
       {:else}
-        <button class="primary" disabled={busy} onclick={() => ask(a)}>{a.connected ? "Switch here" : "Connect"}</button>
+        <button class="primary" disabled={busy} onclick={() => ask(a)}>{a.connected ? t("Switch here") : t("Connect")}</button>
       {/if}
     </div>
   {/each}
@@ -60,13 +60,13 @@
 
 {#if confirm}
   <div class="backdrop" role="presentation" onmousedown={(e) => e.target === e.currentTarget && (confirm = null)}>
-    <div class="dialog" role="dialog" aria-modal="true" aria-label="Confirm connection" tabindex="-1" use:modal={() => (confirm = null)}>
-      <h3>Connect {confirm.app.name}?</h3>
-      <p>FermiVault will add this entry to the file below. Other settings are kept, and the original is saved next to it as <code>.fermivault-backup</code>.</p>
+    <div class="dialog" role="dialog" aria-modal="true" aria-label={t("Confirm connection")} tabindex="-1" use:modal={() => (confirm = null)}>
+      <h3>{t("Connect {app}?", { app: confirm.app.name })}</h3>
+      <p>{t("FermiVault will add this entry to the file below. Other settings are kept, and the original is saved next to it as")} <code>.fermivault-backup</code>.</p>
       <pre>{confirm.preview}</pre>
       <div class="actions">
-        <button onclick={() => (confirm = null)}>Cancel</button>
-        <button class="primary" disabled={busy} onclick={() => set(confirm!.app, true)}>Connect</button>
+        <button onclick={() => (confirm = null)}>{t("Cancel")}</button>
+        <button class="primary" disabled={busy} onclick={() => set(confirm!.app, true)}>{t("Connect")}</button>
       </div>
     </div>
   </div>

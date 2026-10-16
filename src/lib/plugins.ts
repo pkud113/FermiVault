@@ -3,6 +3,7 @@
 // network requests and remote scripts. So a plugin can only post messages; `dispatch` answers
 // them within the permissions the user granted when enabling it.
 
+import { t } from "./i18n.svelte";
 import { api, basename, type VaultConfig } from "./api";
 import { dispatch, knownPermission, prelude, type Impl } from "./pluginApi";
 import { serial } from "./docs";
@@ -71,11 +72,11 @@ function start(id: string, manifest: Record<string, unknown>, source: string, gr
       } catch (err) {
         worker.postMessage({ t: "result", id: m.id, ok: false, error: err instanceof Error ? err.message : String(err) });
       }
-    } else if (m.t === "error") app.error = `Plugin ${name}: ${String(m.message).slice(0, 300)}`;
+    } else if (m.t === "error") app.error = t("Plugin {name}: {error}", { name, error: String(m.message).slice(0, 300) });
   };
   worker.onerror = (e) => {
     e.preventDefault();
-    app.error = `Plugin ${name}: ${e.message}`;
+    app.error = t("Plugin {name}: {error}", { name, error: e.message });
   };
 }
 
@@ -113,7 +114,7 @@ async function syncNow() {
       const source = await api.pluginSource(id);
       start(id, p.manifest as Record<string, unknown>, source, grants[id].permissions.filter(knownPermission));
     } catch (e) {
-      app.error = `Plugin ${id}: ${e}`;
+      app.error = t("Plugin {name}: {error}", { name: id, error: String(e) });
     }
   }
 }

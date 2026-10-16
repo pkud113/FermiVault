@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "./i18n.svelte";
   import { api, basename, type Snapshot } from "./api";
   import { serial } from "./docs";
   import { app } from "./store.svelte";
@@ -17,7 +18,7 @@
 
   async function pick(s: Snapshot) {
     sel = s;
-    text = await api.readSnapshot(path, s.id).catch((e) => `Could not read snapshot: ${e}`);
+    text = await api.readSnapshot(path, s.id).catch((e) => t("Could not read snapshot: {error}", { error: String(e) }));
   }
 
   async function restore() {
@@ -25,7 +26,7 @@
     busy = true;
     try {
       // Save open edits first: restoring snapshots them, so they can be restored too.
-      if (!(await app.flush())) throw new Error("Couldn't save open notes first; nothing was restored.");
+      if (!(await app.flush())) throw new Error(t("Couldn't save open notes first; nothing was restored."));
       await serial(() => api.restoreSnapshot(path, sel!.id));
       app.version++; // open editors re-read the file
       app.recovery = null;
@@ -36,17 +37,17 @@
     }
   }
 
-  const ago = (t: number) => {
-    const m = Math.round((Date.now() - t) / 60_000);
-    return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : new Date(t).toLocaleString();
+  const ago = (at: number) => {
+    const m = Math.round((Date.now() - at) / 60_000);
+    return m < 1 ? t("just now") : m < 60 ? t("{n} min ago", { n: m }) : m < 1440 ? t("{n} h ago", { n: Math.round(m / 60) }) : new Date(at).toLocaleString();
   };
 </script>
 
 <div class="backdrop" role="presentation" onmousedown={(e) => e.target === e.currentTarget && (app.recovery = null)}>
-  <div class="dialog" role="dialog" aria-modal="true" aria-label="File recovery" tabindex="-1" use:modal={() => (app.recovery = null)}>
+  <div class="dialog" role="dialog" aria-modal="true" aria-label={t("File recovery")} tabindex="-1" use:modal={() => (app.recovery = null)}>
     <div class="head">
-      <h3>File recovery · {basename(path)}</h3>
-      <button onclick={() => (app.recovery = null)} aria-label="Close">✕</button>
+      <h3>{t("File recovery · {note}", { note: basename(path) })}</h3>
+      <button onclick={() => (app.recovery = null)} aria-label={t("Close")}>✕</button>
     </div>
     {#if snaps.length}
       <div class="body">
@@ -60,11 +61,11 @@
         <pre>{text}</pre>
       </div>
       <div class="actions">
-        <span class="hint">Restoring keeps a snapshot of the current version, so it can be undone.</span>
-        <button class="primary" disabled={!sel || busy} onclick={restore}>Restore this version</button>
+        <span class="hint">{t("Restoring keeps a snapshot of the current version, so it can be undone.")}</span>
+        <button class="primary" disabled={!sel || busy} onclick={restore}>{t("Restore this version")}</button>
       </div>
     {:else}
-      <p class="hint">No snapshots yet. FermiVault keeps one every 5 minutes while you edit, and one before every AI-agent change.</p>
+      <p class="hint">{t("No snapshots yet. FermiVault keeps one every 5 minutes while you edit, and one before every AI-agent change.")}</p>
     {/if}
   </div>
 </div>

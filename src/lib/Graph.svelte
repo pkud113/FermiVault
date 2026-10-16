@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "./i18n.svelte";
   import { onDestroy } from "svelte";
   import { api, basename } from "./api";
   import { app } from "./store.svelte";
@@ -98,7 +99,7 @@
 </script>
 
 <div class="graph" class:local bind:this={container}>
-  {#if count === 0}<div class="empty">{local ? "No links to or from this note yet." : "No notes yet."}</div>{/if}
+  {#if count === 0}<div class="empty">{local ? t("No links to or from this note yet.") : t("No notes yet.")}</div>{/if}
 </div>
 
 <style>

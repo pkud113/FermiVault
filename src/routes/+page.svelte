@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { setLanguage, t } from "$lib/i18n.svelte";
+  import { tk } from "$lib/tk";
   import { onMount } from "svelte";
   import { listen } from "@tauri-apps/api/event";
   import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -37,12 +39,12 @@
   let dark = $state(false);
 
   async function chooseVault() {
-    const dir = await pickFolder({ directory: true, title: "Open a folder as a vault" });
+    const dir = await pickFolder({ directory: true, title: t("Open a folder as a vault") });
     if (typeof dir === "string") await app.openVault(dir);
   }
 
   async function clipPage() {
-    const url = (await app.ask("Web page to clip (https://…)"))?.trim();
+    const url = (await app.ask(t("Web page to clip (https://…)")))?.trim();
     if (url) app.clip(/^[a-z]+:\/\//i.test(url) ? url : `https://${url}`);
   }
 
@@ -50,7 +52,7 @@
   function insertTable() {
     const ed = app.focusedEditor();
     const doc = ed?.doc();
-    if (!ed || !doc) return void (app.error = "Open a note first.");
+    if (!ed || !doc) return void (app.error = t("Open a note first."));
     const block = "```table\nfrom: #project\nwhere: status != done\nsort: due\ncolumns: file, status, due\n```\n";
     ed.apply(doc, doc.state.replaceSelection(block));
   }
@@ -61,50 +63,50 @@
   }
 
   const commands: Command[] = [
-    { id: "switcher", name: "Quick switcher: open or create a note", keys: "Ctrl+O", run: () => (app.palette = { kind: "switcher" }) },
-    { id: "new", name: "New note", keys: "Ctrl+N", run: () => app.newNote(dirname(app.activePath ?? "")) },
-    { id: "new-canvas", name: "New canvas", run: () => app.newCanvas(dirname(app.activePath ?? "")) },
-    { id: "clip", name: "Clip web page as a note…", run: clipPage },
-    { id: "sync", name: "Git: Sync vault now", run: () => app.syncNow() },
-    { id: "search", name: "Search vault", keys: "Ctrl+Shift+F", run: () => (app.reveal("left"), (app.left = "search")) },
-    { id: "rename", name: "Rename current note", keys: "F2", run: () => app.activePath && app.rename(app.activePath) },
-    { id: "delete", name: "Delete current note", run: () => app.activePath && app.remove(app.activePath) },
-    { id: "close", name: "Close tab", keys: "Ctrl+W", run: () => app.closeTab() },
-    { id: "next", name: "Next tab", keys: "Ctrl+Tab", run: () => cycleTab(1) },
-    { id: "prev", name: "Previous tab", keys: "Ctrl+Shift+Tab", run: () => cycleTab(-1) },
-    { id: "split", name: "Split right", keys: "Ctrl+\\", run: () => app.splitRight() },
-    { id: "live", name: "Toggle live preview / source mode", keys: "Ctrl+E", run: () => (app.settings.livePreview = !app.settings.livePreview) },
-    { id: "daily", name: "Open today's daily note", keys: "Ctrl+Shift+D", run: () => app.dailyNote() },
-    { id: "template", name: "Insert template", keys: "Ctrl+Shift+T", run: () => app.insertTemplate() },
-    { id: "graph", name: "Open graph view", keys: "Alt+G", run: () => app.open(GRAPH, true) },
-    { id: "local-graph", name: "Show local graph", run: () => (app.reveal("right"), (app.right = "graph")) },
-    { id: "bookmark", name: "Bookmark / unbookmark current note", run: () => app.toggleBookmark(app.activePath) },
+    { id: "switcher", name: tk("Quick switcher: open or create a note"), keys: "Ctrl+O", run: () => (app.palette = { kind: "switcher" }) },
+    { id: "new", name: tk("New note"), keys: "Ctrl+N", run: () => app.newNote(dirname(app.activePath ?? "")) },
+    { id: "new-canvas", name: tk("New canvas"), run: () => app.newCanvas(dirname(app.activePath ?? "")) },
+    { id: "clip", name: tk("Clip web page as a note…"), run: clipPage },
+    { id: "sync", name: tk("Git: Sync vault now"), run: () => app.syncNow() },
+    { id: "search", name: tk("Search vault"), keys: "Ctrl+Shift+F", run: () => (app.reveal("left"), (app.left = "search")) },
+    { id: "rename", name: tk("Rename current note"), keys: "F2", run: () => app.activePath && app.rename(app.activePath) },
+    { id: "delete", name: tk("Delete current note"), run: () => app.activePath && app.remove(app.activePath) },
+    { id: "close", name: tk("Close tab"), keys: "Ctrl+W", run: () => app.closeTab() },
+    { id: "next", name: tk("Next tab"), keys: "Ctrl+Tab", run: () => cycleTab(1) },
+    { id: "prev", name: tk("Previous tab"), keys: "Ctrl+Shift+Tab", run: () => cycleTab(-1) },
+    { id: "split", name: tk("Split right"), keys: "Ctrl+\\", run: () => app.splitRight() },
+    { id: "live", name: tk("Toggle live preview / source mode"), keys: "Ctrl+E", run: () => (app.settings.livePreview = !app.settings.livePreview) },
+    { id: "daily", name: tk("Open today's daily note"), keys: "Ctrl+Shift+D", run: () => app.dailyNote() },
+    { id: "template", name: tk("Insert template"), keys: "Ctrl+Shift+T", run: () => app.insertTemplate() },
+    { id: "graph", name: tk("Open graph view"), keys: "Alt+G", run: () => app.open(GRAPH, true) },
+    { id: "local-graph", name: tk("Show local graph"), run: () => (app.reveal("right"), (app.right = "graph")) },
+    { id: "bookmark", name: tk("Bookmark / unbookmark current note"), run: () => app.toggleBookmark(app.activePath) },
     {
       id: "recovery",
-      name: "File recovery: restore an earlier version of this note",
-      run: () => (app.activePath?.endsWith(".md") ? (app.recovery = app.activePath) : (app.error = "Open a note first.")),
+      name: tk("File recovery: restore an earlier version of this note"),
+      run: () => (app.activePath?.endsWith(".md") ? (app.recovery = app.activePath) : (app.error = t("Open a note first."))),
     },
-    { id: "chat", name: "AI: Chat with your notes", keys: "Ctrl+J", run: () => (app.reveal("right"), (app.right = "chat")) },
-    { id: "ai-improve", name: "AI: Improve writing (selection)", run: () => inlineAI("improve") },
-    { id: "ai-fix", name: "AI: Fix spelling and grammar (selection)", run: () => inlineAI("fix") },
-    { id: "ai-summarize", name: "AI: Summarize selection", run: () => inlineAI("summarize") },
-    { id: "ai-continue", name: "AI: Continue writing at cursor", keys: "Ctrl+Shift+Enter", run: () => inlineAI("continue") },
-    { id: "ai-stop", name: "AI: Stop generating", run: () => ai.stop() },
-    { id: "files", name: "Show file explorer", run: () => (app.reveal("left"), (app.left = "files")) },
-    { id: "tags", name: "Show tags", run: () => (app.reveal("left"), (app.left = "tags")) },
-    { id: "bookmarks", name: "Show bookmarks", run: () => (app.reveal("left"), (app.left = "bookmarks")) },
-    { id: "ai", name: "Connect AI apps (Claude, Codex, Cursor…)", run: () => (app.reveal("left"), (app.left = "ai")) },
-    { id: "backlinks", name: "Show backlinks", run: () => (app.reveal("right"), (app.right = "backlinks")) },
-    { id: "outline", name: "Show outline", run: () => (app.reveal("right"), (app.right = "outline")) },
-    { id: "properties", name: "Show properties of this note", run: () => (app.reveal("right"), (app.right = "properties")) },
-    { id: "table", name: "Insert table of notes (by properties)", run: insertTable },
-    { id: "left", name: "Toggle left sidebar", run: () => app.toggleSide("left", lw > 0) },
-    { id: "right", name: "Toggle right sidebar", run: () => app.toggleSide("right", rw > 0) },
-    { id: "vim", name: "Toggle Vim key bindings", run: () => (app.settings.vim = !app.settings.vim) },
-    { id: "theme", name: "Toggle dark mode", run: () => (app.settings.theme = dark ? "light" : "dark") },
-    { id: "settings", name: "Settings", keys: "Ctrl+,", run: () => (app.showSettings = true) },
-    { id: "vault", name: "Open another vault…", run: chooseVault },
-    { id: "palette", name: "Command palette", keys: "Ctrl+P", run: () => (app.palette = { kind: "commands" }) },
+    { id: "chat", name: tk("AI: Chat with your notes"), keys: "Ctrl+J", run: () => (app.reveal("right"), (app.right = "chat")) },
+    { id: "ai-improve", name: tk("AI: Improve writing (selection)"), run: () => inlineAI("improve") },
+    { id: "ai-fix", name: tk("AI: Fix spelling and grammar (selection)"), run: () => inlineAI("fix") },
+    { id: "ai-summarize", name: tk("AI: Summarize selection"), run: () => inlineAI("summarize") },
+    { id: "ai-continue", name: tk("AI: Continue writing at cursor"), keys: "Ctrl+Shift+Enter", run: () => inlineAI("continue") },
+    { id: "ai-stop", name: tk("AI: Stop generating"), run: () => ai.stop() },
+    { id: "files", name: tk("Show file explorer"), run: () => (app.reveal("left"), (app.left = "files")) },
+    { id: "tags", name: tk("Show tags"), run: () => (app.reveal("left"), (app.left = "tags")) },
+    { id: "bookmarks", name: tk("Show bookmarks"), run: () => (app.reveal("left"), (app.left = "bookmarks")) },
+    { id: "ai", name: tk("Connect AI apps (Claude, Codex, Cursor…)"), run: () => (app.reveal("left"), (app.left = "ai")) },
+    { id: "backlinks", name: tk("Show backlinks"), run: () => (app.reveal("right"), (app.right = "backlinks")) },
+    { id: "outline", name: tk("Show outline"), run: () => (app.reveal("right"), (app.right = "outline")) },
+    { id: "properties", name: tk("Show properties of this note"), run: () => (app.reveal("right"), (app.right = "properties")) },
+    { id: "table", name: tk("Insert table of notes (by properties)"), run: insertTable },
+    { id: "left", name: tk("Toggle left sidebar"), run: () => app.toggleSide("left", lw > 0) },
+    { id: "right", name: tk("Toggle right sidebar"), run: () => app.toggleSide("right", rw > 0) },
+    { id: "vim", name: tk("Toggle Vim key bindings"), run: () => (app.settings.vim = !app.settings.vim) },
+    { id: "theme", name: tk("Toggle dark mode"), run: () => (app.settings.theme = dark ? "light" : "dark") },
+    { id: "settings", name: tk("Settings"), keys: "Ctrl+,", run: () => (app.showSettings = true) },
+    { id: "vault", name: tk("Open another vault…"), run: chooseVault },
+    { id: "palette", name: tk("Command palette"), keys: "Ctrl+P", run: () => (app.palette = { kind: "commands" }) },
   ];
 
   const shortcuts: Record<string, string> = {
@@ -137,6 +139,10 @@
   $effect(() => {
     document.documentElement.style.setProperty("--fv-font-size", `${app.settings.fontSize}px`);
   });
+  // Translations load on demand; English needs nothing.
+  $effect(() => {
+    setLanguage(app.settings.language);
+  });
   // Git auto-sync, if turned on for this vault (Settings → Sync).
   $effect(() => {
     const minutes = app.root ? (app.config.gitAutoSync ?? 0) : 0;
@@ -150,9 +156,9 @@
     const t = setInterval(() => (now = Date.now()), 30_000);
     return () => clearInterval(t);
   });
-  const ago = (t: number) => {
-    const m = Math.round((now - t) / 60_000);
-    return m < 1 ? "just now" : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} h ago`;
+  const ago = (at: number) => {
+    const m = Math.round((now - at) / 60_000);
+    return m < 1 ? t("just now") : m < 60 ? t("{n} min ago", { n: m }) : t("{n} h ago", { n: Math.round(m / 60) });
   };
 
   // Plugins start once the app is idle, so they never slow startup. A new vault stops the old
@@ -232,7 +238,7 @@
       // Write any edits still waiting on the save debounce before the window goes away.
       getCurrentWindow().onCloseRequested(async (e) => {
         if (await app.flush()) return;
-        if (!(await ask("Some notes couldn't be saved. Close anyway and lose those edits?", { title: "Unsaved changes", kind: "warning" }))) {
+        if (!(await ask(t("Some notes couldn't be saved. Close anyway and lose those edits?"), { title: t("Unsaved changes"), kind: "warning" }))) {
           e.preventDefault();
         }
       }),
@@ -254,89 +260,89 @@
 {:else if !app.root}
   <div class="welcome">
     <h1>FermiVault</h1>
-    <p>Fast, local-first notes that your AI apps can read and edit too.</p>
-    <button class="primary big" onclick={chooseVault}>Open folder as vault</button>
-    <p class="hint">Pick any folder, empty or full of Markdown. Your notes stay plain <code>.md</code> files.</p>
+    <p>{t("Fast, local-first notes that your AI apps can read and edit too.")}</p>
+    <button class="primary big" onclick={chooseVault}>{t("Open folder as vault")}</button>
+    <p class="hint">{t("Pick any folder, empty or full of Markdown. Your notes stay plain")} <code>.md</code> {t("files.")}</p>
   </div>
 {:else}
   <div class="shell" style="--left:{lw}px; --right:{rw}px">
     {#if lw > 0}
       <aside class="left">
         <div class="switch">
-          <div class="views" role="tablist" aria-label="Sidebar" use:tabKeys>
-            {#each [["files", "Files"], ["search", "Search (Ctrl+Shift+F)"], ["tags", "Tags"], ["bookmarks", "Bookmarks"], ["ai", "AI apps"]] as const as [id, label]}
+          <div class="views" role="tablist" aria-label={t("Sidebar")} use:tabKeys>
+            {#each [["files", tk("Files")], ["search", tk("Search (Ctrl+Shift+F)")], ["tags", tk("Tags")], ["bookmarks", tk("Bookmarks")], ["ai", tk("AI apps")]] as const as [id, label]}
               <button
                 role="tab"
                 aria-selected={app.left === id}
                 tabindex={app.left === id ? 0 : -1}
                 class:on={app.left === id}
                 onclick={() => (app.left = id)}
-                title={label}
-                aria-label={label}
+                title={t(label)}
+                aria-label={t(label)}
               >
                 <Icon name={id} />
               </button>
             {/each}
           </div>
           <span class="spacer"></span>
-          <button title="Today's daily note (Ctrl+Shift+D)" aria-label="Daily note" onclick={() => app.dailyNote()}><Icon name="calendar" /></button>
-          <button title="Graph view (Alt+G)" aria-label="Graph view" onclick={() => app.open(GRAPH, true)}><Icon name="graph" /></button>
+          <button title={t("Today's daily note (Ctrl+Shift+D)")} aria-label={t("Daily note")} onclick={() => app.dailyNote()}><Icon name="calendar" /></button>
+          <button title={t("Graph view (Alt+G)")} aria-label={t("Graph view")} onclick={() => app.open(GRAPH, true)}><Icon name="graph" /></button>
         </div>
         {#if app.left === "files"}<FileTree />
         {:else if app.left === "search"}<SearchPane />
         {:else if app.left === "tags"}<TagsPane />
         {:else if app.left === "bookmarks"}<Bookmarks />
         {:else}<Connections />{/if}
-        <button class="vaultname" title="Switch vault ({app.root})" onclick={chooseVault}>
+        <button class="vaultname" title={t("Switch vault ({path})", { path: app.root })} onclick={chooseVault}>
           <span>{basename(app.root.replaceAll("\\", "/"))}</span><Icon name="swap" size={14} />
         </button>
         <!-- A focusable separator is ARIA's resize control: arrow keys move it. -->
         <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-        <div class="grip" role="separator" aria-orientation="vertical" aria-label="Resize left sidebar" aria-valuemin={MIN_PANEL} aria-valuemax={MAX_PANEL} aria-valuenow={lw} tabindex="0" onpointerdown={resize("left")} onkeydown={gripKey("left")}></div>
+        <div class="grip" role="separator" aria-orientation="vertical" aria-label={t("Resize left sidebar")} aria-valuemin={MIN_PANEL} aria-valuemax={MAX_PANEL} aria-valuenow={lw} tabindex="0" onpointerdown={resize("left")} onkeydown={gripKey("left")}></div>
       </aside>
     {/if}
 
     <main class="panes">
       {#each app.panes as pane, pi (pane)}
         <section class="pane" class:focused={app.focus === pi && app.panes.length > 1}>
-          <div class="tabs" role="tablist" aria-label="Open notes" use:tabKeys>
-            <button class="icon" title="Toggle left sidebar" aria-label="Toggle left sidebar" aria-pressed={lw > 0} onclick={() => app.toggleSide("left", lw > 0)}><Icon name="sidebarLeft" /></button>
-            {#each pane.tabs as t, ti}
+          <div class="tabs" role="tablist" aria-label={t("Open notes")} use:tabKeys>
+            <button class="icon" title={t("Toggle left sidebar")} aria-label={t("Toggle left sidebar")} aria-pressed={lw > 0} onclick={() => app.toggleSide("left", lw > 0)}><Icon name="sidebarLeft" /></button>
+            {#each pane.tabs as tab, ti}
               <div
                 class="tab"
                 class:on={ti === pane.active}
                 role="tab"
                 tabindex={ti === pane.active ? 0 : -1}
                 aria-selected={ti === pane.active}
-                title={t}
+                title={tab}
                 onclick={() => ((pane.active = ti), (app.focus = pi))}
                 onkeydown={(e) => e.target === e.currentTarget && (e.key === "Enter" || e.key === " ") && (e.preventDefault(), (pane.active = ti), (app.focus = pi))}
                 onauxclick={(e) => e.button === 1 && app.closeTab(pi, ti)}
               >
-                <span>{t === GRAPH ? "Graph" : basename(t)}</span>
-                <button class="x" aria-label="Close {t === GRAPH ? 'Graph' : basename(t)}" tabindex={ti === pane.active ? 0 : -1} onclick={(e) => (e.stopPropagation(), app.closeTab(pi, ti))}>✕</button>
+                <span>{tab === GRAPH ? t("Graph") : basename(tab)}</span>
+                <button class="x" aria-label={t("Close {tab}", { tab: tab === GRAPH ? t("Graph") : basename(tab) })} tabindex={ti === pane.active ? 0 : -1} onclick={(e) => (e.stopPropagation(), app.closeTab(pi, ti))}>✕</button>
               </div>
             {/each}
             <div class="spacer"></div>
-            <button class="icon" title="Toggle right sidebar" aria-label="Toggle right sidebar" aria-pressed={rw > 0} onclick={() => app.toggleSide("right", rw > 0)}><Icon name="sidebarRight" /></button>
+            <button class="icon" title={t("Toggle right sidebar")} aria-label={t("Toggle right sidebar")} aria-pressed={rw > 0} onclick={() => app.toggleSide("right", rw > 0)}><Icon name="sidebarRight" /></button>
           </div>
           <div class="body">
             {#if pane.tabs.length}
-              {@const t = pane.tabs[pane.active]}
-              {#if t === GRAPH}<Graph />
-              {:else if kind(t) === "note"}<Editor pane={pi} path={t} />
-              {:else if kind(t) === "canvas"}
+              {@const tab = pane.tabs[pane.active]}
+              {#if tab === GRAPH}<Graph />
+              {:else if kind(tab) === "note"}<Editor pane={pi} path={tab} />
+              {:else if kind(tab) === "canvas"}
                 <!-- Canvas code loads the first time a canvas is opened. -->
-                {#await import("$lib/Canvas.svelte") then m}{#key t}<m.default path={t} />{/key}{/await}
-              {:else}<Viewer path={t} />{/if}
+                {#await import("$lib/Canvas.svelte") then m}{#key tab}<m.default path={tab} />{/key}{/await}
+              {:else}<Viewer path={tab} />{/if}
             {:else}
               <div class="empty">
-                <button onclick={() => (app.palette = { kind: "switcher" })}>Open a note <kbd>Ctrl O</kbd></button>
-                <button onclick={() => app.newNote()}>New note <kbd>Ctrl N</kbd></button>
-                <button onclick={() => app.dailyNote()}>Today's daily note <kbd>Ctrl Shift D</kbd></button>
-                <button onclick={() => app.open(GRAPH, true)}>Graph view <kbd>Alt G</kbd></button>
-                <button onclick={() => (app.palette = { kind: "commands" })}>All commands <kbd>Ctrl P</kbd></button>
-                <button onclick={() => (app.showSettings = true)}>Settings <kbd>Ctrl ,</kbd></button>
+                <button onclick={() => (app.palette = { kind: "switcher" })}>{t("Open a note")} <kbd>Ctrl O</kbd></button>
+                <button onclick={() => app.newNote()}>{t("New note")} <kbd>Ctrl N</kbd></button>
+                <button onclick={() => app.dailyNote()}>{t("Today's daily note")} <kbd>Ctrl Shift D</kbd></button>
+                <button onclick={() => app.open(GRAPH, true)}>{t("Graph view")} <kbd>Alt G</kbd></button>
+                <button onclick={() => (app.palette = { kind: "commands" })}>{t("All commands")} <kbd>Ctrl P</kbd></button>
+                <button onclick={() => (app.showSettings = true)}>{t("Settings")} <kbd>Ctrl ,</kbd></button>
               </div>
             {/if}
           </div>
@@ -348,32 +354,32 @@
       <aside class="right">
         <!-- A focusable separator is ARIA's resize control: arrow keys move it. -->
         <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-        <div class="grip" role="separator" aria-orientation="vertical" aria-label="Resize right sidebar" aria-valuemin={MIN_PANEL} aria-valuemax={MAX_PANEL} aria-valuenow={rw} tabindex="0" onpointerdown={resize("right")} onkeydown={gripKey("right")}></div>
+        <div class="grip" role="separator" aria-orientation="vertical" aria-label={t("Resize right sidebar")} aria-valuemin={MIN_PANEL} aria-valuemax={MAX_PANEL} aria-valuenow={rw} tabindex="0" onpointerdown={resize("right")} onkeydown={gripKey("right")}></div>
         <RightPanel />
       </aside>
     {/if}
 
     <footer>
-      <button class="mode gear" title="Settings (Ctrl+,)" aria-label="Settings" onclick={() => (app.showSettings = true)}><Icon name="settings" size={14} /></button>
+      <button class="mode gear" title={t("Settings (Ctrl+,)")} aria-label={t("Settings")} onclick={() => (app.showSettings = true)}><Icon name="settings" size={14} /></button>
       <span class="path">{app.activePath ?? ""}</span>
       <span class="spacer"></span>
       {#if app.sync.busy || app.sync.last || app.sync.error || app.config.gitAutoSync}
-        <button class="mode" class:bad={!!app.sync.error} title={app.sync.error ?? "Sync with Git now"} onclick={() => app.syncNow()}>
-          {app.sync.busy ? "Syncing…" : app.sync.error ? "Sync failed" : app.sync.last ? `Synced ${ago(app.sync.last)}` : "Sync"}
+        <button class="mode" class:bad={!!app.sync.error} title={app.sync.error ?? t("Sync with Git now")} onclick={() => app.syncNow()}>
+          {app.sync.busy ? t("Syncing…") : app.sync.error ? t("Sync failed") : app.sync.last ? t("Synced {when}", { when: ago(app.sync.last) }) : t("Sync")}
         </button>
       {/if}
       {#if ai.busy}
-        <span class="busy">{ai.busy.label}…</span>
-        <button class="mode" onclick={() => ai.stop()}>Stop</button>
+        <span class="busy">{t(ai.busy.label)}…</span>
+        <button class="mode" onclick={() => ai.stop()}>{t("Stop")}</button>
       {/if}
       {#if app.activePath?.endsWith(".md")}
-        <button class="mode" onclick={() => app.toggleBookmark(app.activePath)} title="Bookmark this note">
+        <button class="mode" onclick={() => app.toggleBookmark(app.activePath)} title={t("Bookmark this note")}>
           {app.isBookmarked(app.activePath) ? "★ Bookmarked" : "☆ Bookmark"}
         </button>
-        <span>{words.toLocaleString()} words · {app.docText.length.toLocaleString()} chars</span>
+        <span>{t("{words} words · {chars} chars", { words: words.toLocaleString(), chars: app.docText.length.toLocaleString() })}</span>
       {/if}
       <button class="mode" onclick={() => (app.settings.livePreview = !app.settings.livePreview)} title="Ctrl+E">
-        {app.settings.livePreview ? "Live preview" : "Source"}
+        {app.settings.livePreview ? t("Live preview") : t("Source")}
       </button>
     </footer>
   </div>
@@ -387,13 +393,13 @@
 {#if app.notice && !app.error}
   <div class="toast info" role="status">
     {app.notice}
-    <button aria-label="Dismiss" onclick={() => (app.notice = null)}>✕</button>
+    <button aria-label={t("Dismiss")} onclick={() => (app.notice = null)}>✕</button>
   </div>
 {/if}
 {#if app.error}
   <div class="toast" role="alert">
     {app.error}
-    <button aria-label="Dismiss" onclick={() => (app.error = null)}>✕</button>
+    <button aria-label={t("Dismiss")} onclick={() => (app.error = null)}>✕</button>
   </div>
 {/if}
 

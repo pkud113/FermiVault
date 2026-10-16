@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "./i18n.svelte";
   import { onDestroy, onMount } from "svelte";
   import { EditorView } from "@codemirror/view";
   import type { EditorState, Transaction, TransactionSpec } from "@codemirror/state";
@@ -52,12 +53,12 @@
     clearTimeout(d.timer);
     return saveDoc(d, text, api.write).then(
       (conflict) => {
-        if (conflict) app.error = `${d.path} was also changed outside FermiVault. Your version is saved; the other one is in File recovery.`;
+        if (conflict) app.error = t("{path} was also changed outside FermiVault. Your version is saved; the other one is in File recovery.", { path: d.path });
         return true;
       },
       (e) => {
         if (d.closed) return false;
-        app.error = `Couldn't save ${d.path}: ${e}. Your changes are kept and FermiVault keeps retrying.`;
+        app.error = t("Couldn't save {path}: {error}. Your changes are kept and FermiVault keeps retrying.", { path: d.path, error: String(e) });
         d.timer = setTimeout(() => persist(d), 5000);
         return false;
       },

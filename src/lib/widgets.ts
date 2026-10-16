@@ -2,6 +2,7 @@
 // Heavy renderers (KaTeX, Mermaid) are dynamic imports, loaded the first time a
 // note actually uses them, so they never cost startup time.
 
+import { t } from "./i18n.svelte";
 import { Facet, StateField, type EditorState } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemirror/view";
 import { syntaxTree } from "@codemirror/language";
@@ -73,7 +74,7 @@ class ImageWidget extends WidgetType {
     // Notes and AI answers can come from anywhere; loading a web image tells its host you opened them.
     const btn = Object.assign(document.createElement("button"), {
       className: "cm-embed-remote",
-      textContent: `Load image from ${new URL(this.src).host}`,
+      textContent: t("Load image from {host}", { host: new URL(this.src).host }),
       title: this.src,
     });
     btn.onmousedown = (e) => {
@@ -170,7 +171,7 @@ class MermaidWidget extends WidgetType {
     return o.code === this.code;
   }
   toDOM(view: EditorView) {
-    const el = Object.assign(document.createElement("div"), { className: "cm-mermaid", textContent: "Rendering diagram…" });
+    const el = Object.assign(document.createElement("div"), { className: "cm-mermaid", textContent: t("Rendering diagram…") });
     (mermaid ??= import("mermaid").then((m) => m.default)).then(async (m) => {
       const theme = host.dark() ? "dark" : "default";
       if (theme !== mermaidTheme) {
@@ -181,7 +182,7 @@ class MermaidWidget extends WidgetType {
       try {
         el.innerHTML = (await m.render(`fv-mermaid-${mermaidId++}`, this.code)).svg;
       } catch (e) {
-        el.textContent = `Mermaid error: ${(e as Error).message}`;
+        el.textContent = t("Mermaid error: {error}", { error: (e as Error).message });
         el.classList.add("cm-embed-missing");
       }
       view.requestMeasure();
@@ -240,18 +241,21 @@ class TableWidget extends WidgetType {
           } else td.textContent = cell;
         });
       }
-      const foot = data.total > data.rows.length ? `Showing ${data.rows.length} of ${data.total}` : `${data.total} note${data.total === 1 ? "" : "s"}`;
-      wrap.replaceChildren(table, el("div", data.rows.length ? foot : "No matching notes.", "cm-qtable-foot"));
+      const foot =
+        data.total > data.rows.length
+          ? t("Showing {n} of {total}", { n: data.rows.length, total: data.total })
+          : t(data.total === 1 ? "1 note" : "{n} notes", { n: data.total });
+      wrap.replaceChildren(table, el("div", data.rows.length ? foot : t("No matching notes."), "cm-qtable-foot"));
       view.requestMeasure();
     };
     const run = () =>
       host.query(this.code).then(
         (t) => ((data = t), draw()),
-        (e) => (wrap.replaceChildren(el("div", `Table: ${e}`, "cm-embed-missing")), view.requestMeasure()),
+        (e) => (wrap.replaceChildren(el("div", t("Table: {error}", { error: String(e) }), "cm-embed-missing")), view.requestMeasure()),
       );
     (wrap as any).run = run;
     liveTables.add(run);
-    wrap.textContent = "Loading table…";
+    wrap.textContent = t("Loading table…");
     run();
     return wrap;
   }
