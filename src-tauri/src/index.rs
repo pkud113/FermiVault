@@ -54,13 +54,25 @@ fn fts_query(q: &str) -> String {
 
 impl Index {
     pub fn open(vault: &Vault) -> Res<Self> {
-        let db = Connection::open(vault.dot_dir().join("index.db")).map_err(err)?;
+        let mut db = Connection::open(vault.dot_dir().join("index.db")).map_err(err)?;
         db.busy_timeout(std::time::Duration::from_secs(5)).map_err(err)?;
-        db.pragma_update(None, "journal_mode", "WAL").map_err(err)?;
+        // WAL is stored in the file, so only the first open switches it. The switch needs a moment
+        // of exclusive access and doesn't wait on the busy timeout, so retry while another
+        // connection (the app's other threads, an MCP process) is opening too.
+        for attempt in 0.. {
+            match db.pragma_update_and_check(None, "journal_mode", "WAL", |r| r.get::<_, String>(0)) {
+                Ok(_) => break,
+                Err(_) if attempt < 100 => std::thread::sleep(std::time::Duration::from_millis(50)),
+                Err(e) => return Err(err(e)),
+            }
+        }
         db.pragma_update(None, "synchronous", "NORMAL").map_err(err)?;
-        let v: i32 = db.pragma_query_value(None, "user_version", |r| r.get(0)).map_err(err)?;
+        // Check and (re)create the schema in one write transaction, so concurrent first opens
+        // don't both rebuild it.
+        let tx = db.transaction_with_behavior(TransactionBehavior::Immediate).map_err(err)?;
+        let v: i32 = tx.pragma_query_value(None, "user_version", |r| r.get(0)).map_err(err)?;
         if v != SCHEMA_VERSION {
-            db.execute_batch(&format!(
+            tx.execute_batch(&format!(
                 "DROP TABLE IF EXISTS notes; DROP TABLE IF EXISTS links; DROP TABLE IF EXISTS tags;
                  DROP TABLE IF EXISTS headings; DROP TABLE IF EXISTS fts;
                  DROP TABLE IF EXISTS chunks; DROP TABLE IF EXISTS meta;
@@ -88,6 +100,7 @@ impl Index {
             ))
             .map_err(err)?;
         }
+        tx.commit().map_err(err)?;
         Ok(Self { db, cache: None })
     }
 
@@ -389,6 +402,29 @@ fn index_note(db: &Connection, path: &str, text: &str, mtime: i64) -> Res<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The app opens several connections at once on a fresh vault (and an MCP process may too).
+    #[test]
+    fn concurrent_first_opens() {
+        let d = tempfile::tempdir().unwrap();
+        let v = Vault::new(d.path()).unwrap();
+        v.write("a.md", "hello").unwrap();
+        let barrier = std::sync::Barrier::new(6);
+        let results: Vec<_> = std::thread::scope(|s| {
+            let hs: Vec<_> = (0..6)
+                .map(|_| {
+                    s.spawn(|| {
+                        barrier.wait();
+                        Index::open(&v).map(|_| ())
+                    })
+                })
+                .collect();
+            hs.into_iter().map(|h| h.join().unwrap()).collect()
+        });
+        assert!(results.iter().all(Result::is_ok), "{results:?}");
+        let mut ix = Index::open(&v).unwrap();
+        assert_eq!(ix.sync(&v).unwrap(), 1);
+    }
 
     /// GUI watcher and MCP server re-index the same note concurrently; deferred
     /// transactions failed instantly with "database is locked" here.

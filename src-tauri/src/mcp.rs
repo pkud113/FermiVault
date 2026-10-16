@@ -195,6 +195,7 @@ impl Server {
             },
             "create_note" => {
                 let path = with_md(arg(a, "path")?);
+                let _lock = self.vault.lock()?;
                 self.vault.create(&path, arg(a, "content")?)?;
                 self.written(&path)?;
                 Ok(format!("Created {path}"))
@@ -202,6 +203,8 @@ impl Server {
             "edit_note" => {
                 let path = self.existing(arg(a, "path")?)?;
                 let content = arg(a, "content")?;
+                // Read, change and write as one step: another agent or the app can't slip a write in between.
+                let _lock = self.vault.lock()?;
                 let text = self.vault.read(&path)?;
                 let new = match arg(a, "mode")? {
                     "append" => {
@@ -235,6 +238,7 @@ impl Server {
             "rename_note" => {
                 let from = self.existing(arg(a, "from")?)?;
                 let to = with_md(arg(a, "to")?);
+                let _lock = self.vault.lock()?;
                 let n = self.ix.rename_note(&self.vault, &from, &to)?;
                 Ok(format!("Renamed {from} -> {to}; updated links in {n} note(s)"))
             }
@@ -303,6 +307,84 @@ mod tests {
             r["result"]["content"][0]["text"].as_str().unwrap().to_string(),
             r["result"]["isError"].as_bool().unwrap(),
         )
+    }
+
+    /// Two agents (separate servers, as separate processes would be) appending to one note:
+    /// every edit must survive.
+    #[test]
+    fn concurrent_agents_lose_no_edits() {
+        let d = tempfile::tempdir().unwrap();
+        let v = Vault::new(d.path()).unwrap();
+        v.write(
+            "Log.md", "# Log
+",
+        )
+        .unwrap();
+        let barrier = std::sync::Barrier::new(2);
+        let servers: Vec<_> = (0..2).map(|_| Server::new(v.clone()).unwrap()).collect();
+        std::thread::scope(|s| {
+            for (agent, mut srv) in servers.into_iter().enumerate() {
+                let barrier = &barrier;
+                s.spawn(move || {
+                    barrier.wait();
+                    for i in 0..25 {
+                        let (msg, failed) = call(
+                            &mut srv,
+                            "edit_note",
+                            json!({"path": "Log", "mode": "append", "content": format!("a{agent}-{i}
+")}),
+                        );
+                        assert!(!failed, "{msg}");
+                    }
+                });
+            }
+        });
+        let text = v.read("Log.md").unwrap();
+        for agent in 0..2 {
+            for i in 0..25 {
+                assert!(
+                    text.contains(&format!(
+                        "a{agent}-{i}
+"
+                    )),
+                    "lost a{agent}-{i}"
+                );
+            }
+        }
+    }
+
+    /// One agent edits while another renames the note: every edit that reports success is in
+    /// the renamed note, the rest fail loudly, and the old path is never recreated.
+    #[test]
+    fn rename_during_edits_loses_nothing() {
+        let d = tempfile::tempdir().unwrap();
+        let v = Vault::new(d.path()).unwrap();
+        v.write("Doc.md", "start\n").unwrap();
+        let (mut editor, mut renamer) = (Server::new(v.clone()).unwrap(), Server::new(v.clone()).unwrap());
+        let barrier = std::sync::Barrier::new(2);
+        let ok: Vec<String> = std::thread::scope(|s| {
+            let edits = s.spawn(|| {
+                barrier.wait();
+                (0..40)
+                    .map(|i| format!("e{i}\n"))
+                    .filter(|line| {
+                        !call(
+                            &mut editor,
+                            "edit_note",
+                            json!({"path": "Doc.md", "mode": "append", "content": line}),
+                        )
+                        .1
+                    })
+                    .collect()
+            });
+            barrier.wait();
+            std::thread::sleep(std::time::Duration::from_millis(5));
+            assert!(!call(&mut renamer, "rename_note", json!({"from": "Doc", "to": "Moved"})).1);
+            edits.join().unwrap()
+        });
+        let text = v.read("Moved.md").unwrap();
+        assert!(ok.iter().all(|line| text.contains(line.as_str())), "a reported edit went missing");
+        assert!(v.read("Doc.md").is_err(), "the old path must not come back");
     }
 
     #[test]

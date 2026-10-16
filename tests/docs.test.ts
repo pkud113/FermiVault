@@ -13,11 +13,14 @@ function disk() {
   const writes: string[] = [];
   let fail = 0;
   let gate: Promise<void> | null = null;
-  const write = async (vault: string, path: string, t: string) => {
+  const write = async (vault: string, path: string, t: string, base: string) => {
     if (gate) await gate;
     writes.push(`${vault}:${path}=${t}`);
     if (fail > 0 && fail--) throw new Error("disk full");
-    files.set(`${vault}:${path}`, t);
+    const key = `${vault}:${path}`;
+    const conflict = files.has(key) && files.get(key) !== base && files.get(key) !== t;
+    files.set(key, t);
+    return conflict;
   };
   return {
     files,
@@ -165,4 +168,15 @@ test("renaming while a load is in flight restarts it at the new path (R3/R4)", a
   finish("old.md");
   await loading;
   assert.ok(!p.docs.some((d) => d.path === "old.md"), "the old path is never bound");
+});
+
+test("a save reports when disk changed since the last sync, and passes the right base (R5)", async () => {
+  const fs = disk();
+  const d = doc("a.md", "v1");
+  fs.files.set("V:a.md", "v1");
+  d.state = { text: "mine" };
+  assert.equal(await saveDoc(d, text, fs.write), false, "disk still had our base");
+  fs.files.set("V:a.md", "agent edit"); // someone else writes
+  d.state = { text: "mine 2" };
+  assert.equal(await saveDoc(d, text, fs.write), true, "conflict reported");
 });

@@ -28,6 +28,16 @@ pub struct Snapshot {
 
 const SNAPSHOTS_KEPT: usize = 50;
 
+/// Held vault write lock (see `Vault::lock`).
+pub struct WriteLock(fs::File);
+
+impl Drop for WriteLock {
+    /// Unlock explicitly: Windows releases a lock on handle close only "eventually".
+    fn drop(&mut self) {
+        let _ = self.0.unlock();
+    }
+}
+
 #[derive(Clone)]
 pub struct Vault {
     pub root: PathBuf,
@@ -209,11 +219,54 @@ impl Vault {
         fs::rename(&tmp, &p).map_err(err)
     }
 
+    /// Creates a new note; fails if it exists. `create_new` makes "doesn't exist yet" and
+    /// "now it's mine" one step, so two creators can't both succeed.
     pub fn create(&self, rel: &str, content: &str) -> Res<()> {
-        if self.abs(rel)?.exists() {
-            return Err(format!("{rel} already exists"));
+        let p = self.abs(rel)?;
+        if let Some(parent) = p.parent() {
+            fs::create_dir_all(parent).map_err(err)?;
         }
-        self.write(rel, content)
+        let mut f = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&p)
+            .map_err(|e| match e.kind() {
+                std::io::ErrorKind::AlreadyExists => format!("{rel} already exists"),
+                _ => format!("{rel}: {e}"),
+            })?;
+        std::io::Write::write_all(&mut f, content.as_bytes()).map_err(err)
+    }
+
+    /// Takes the vault-wide write lock, shared by the app and every MCP process, until the
+    /// returned guard drops. Each read-modify-write of notes runs under it, so concurrent
+    /// writers queue instead of silently overwriting each other. Take it once per operation
+    /// (it doesn't nest) and before the index lock.
+    // ponytail: one lock per vault; per-note locks if agents ever contend on it.
+    pub fn lock(&self) -> Res<WriteLock> {
+        let f = fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(self.dot_dir().join("write.lock"))
+            .map_err(err)?;
+        f.lock().map_err(err)?;
+        Ok(WriteLock(f))
+    }
+
+    /// Saves editor text. `base` is what the editor last loaded or saved: if disk has changed
+    /// since (another app, agent or sync tool wrote it), that version is snapshotted first so
+    /// neither edit is lost, and `true` is returned so the UI can say so. Call under `lock()`.
+    pub fn save(&self, rel: &str, content: &str, base: &str) -> Res<bool> {
+        let disk = match fs::read_to_string(self.abs(rel)?) {
+            Ok(t) => Some(t),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+            Err(e) => return Err(format!("{rel}: {e}")),
+        };
+        let conflict = disk.is_some_and(|d| d != base && d != content);
+        // Otherwise keep a recovery point at most every 5 minutes of editing.
+        self.snapshot(rel, if conflict { 0 } else { 5 * 60_000 })?;
+        self.write(rel, content)?;
+        Ok(conflict)
     }
 
     /// `.fermi/snapshots/<encoded path>/`: one folder per note, so listing is exact.
@@ -444,6 +497,44 @@ mod tests {
         fs::create_dir_all(&elsewhere).unwrap();
         assert!(dir_link(&elsewhere, &root.join(".fermi")));
         assert!(Vault::new(&root).is_err());
+    }
+
+    #[test]
+    fn save_keeps_the_other_version_on_conflict() {
+        let d = tempfile::tempdir().unwrap();
+        let v = Vault::new(d.path()).unwrap();
+        v.write("n.md", "v1").unwrap();
+        assert!(!v.save("n.md", "mine", "v1").unwrap(), "disk still matched the editor's base");
+        v.write("n.md", "agent edit").unwrap(); // someone else writes after our last sync
+        assert!(v.save("n.md", "mine 2", "mine").unwrap(), "conflict reported");
+        assert_eq!(v.read("n.md").unwrap(), "mine 2");
+        let snaps = v.snapshots("n.md");
+        assert_eq!(
+            v.read_snapshot("n.md", &snaps[0].id).unwrap(),
+            "agent edit",
+            "the other version is recoverable"
+        );
+        assert!(!v.save("new.md", "x", "").unwrap(), "a note deleted on disk is simply recreated");
+    }
+
+    #[test]
+    fn create_never_overwrites() {
+        let d = tempfile::tempdir().unwrap();
+        let v = Vault::new(d.path()).unwrap();
+        let barrier = std::sync::Barrier::new(8);
+        let wins = std::sync::atomic::AtomicUsize::new(0);
+        std::thread::scope(|s| {
+            for i in 0..8 {
+                let (v, barrier, wins) = (&v, &barrier, &wins);
+                s.spawn(move || {
+                    barrier.wait();
+                    if v.create("race.md", &format!("creator {i}")).is_ok() {
+                        wins.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    }
+                });
+            }
+        });
+        assert_eq!(wins.into_inner(), 1, "exactly one creator wins");
     }
 
     #[test]
