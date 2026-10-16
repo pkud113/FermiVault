@@ -369,7 +369,7 @@
 
     <footer>
       <button class="mode gear" title={t("Settings (Ctrl+,)")} aria-label={t("Settings")} onclick={() => (app.showSettings = true)}><Icon name="settings" size={14} /></button>
-      <span class="path">{app.activePath ?? ""}</span>
+      <span class="path">{app.activePath === GRAPH ? t("Graph") : (app.activePath ?? "")}</span>
       <span class="spacer"></span>
       {#if app.sync.busy || app.sync.last || app.sync.error || app.config.gitAutoSync}
         <button class="mode" class:bad={!!app.sync.error} title={app.sync.error ?? t("Sync with Git now")} onclick={() => app.syncNow()}>
@@ -386,9 +386,12 @@
         </button>
         <span>{t("{words} words · {chars} chars", { words: words.toLocaleString(), chars: (app.activeDoc?.text.length ?? 0).toLocaleString() })}</span>
       {/if}
-      <button class="mode" onclick={() => (app.settings.livePreview = !app.settings.livePreview)} title="Ctrl+E">
-        {app.settings.livePreview ? t("Live preview") : t("Source")}
-      </button>
+      {#if app.activePath && kind(app.activePath) === "note"}
+        <!-- Only notes have a live preview / source mode. -->
+        <button class="mode" onclick={() => (app.settings.livePreview = !app.settings.livePreview)} title={t("Switch between live preview and source (Ctrl+E)")}>
+          {app.settings.livePreview ? t("Live preview") : t("Source")}
+        </button>
+      {/if}
     </footer>
   </div>
 {/if}

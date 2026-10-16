@@ -48,3 +48,20 @@ test("the outline belongs to the active document, across tab and pane switches",
   assert.match(await panel(page), /Properties belong to notes/);
   await page.close();
 });
+
+test("footer controls match the view: no word count or mode toggle on canvas, PDF or graph", async () => {
+  const page = await open({ width: 1280 });
+  const footer = () => page.text("footer");
+  await page.openFile("Welcome");
+  await page.until(`/words/.test(document.querySelector("footer").innerText)`, "word count");
+  assert.match(await footer(), /Live preview/);
+  await page.openFile("Planning board.canvas");
+  await page.settle(200);
+  assert.doesNotMatch(await footer(), /words|Live preview|Source/);
+  await page.key("Alt+g");
+  await page.settle(200);
+  const f = await footer();
+  assert.doesNotMatch(f, /fermi:graph|Live preview/);
+  assert.match(f, /Graph/);
+  await page.close();
+});
