@@ -3,6 +3,7 @@
 // Settings → AI (a local server by default).
 
 import { api, streamChat, type ChatMessage, type ChunkRef } from "./api";
+import { begin, finish, step } from "./inline";
 import { app } from "./store.svelte";
 
 class AI {
@@ -45,33 +46,39 @@ const INLINE = {
 
 export type InlineKind = keyof typeof INLINE;
 
-/** Runs an inline command on the selection (or, for `continue`, the text before the cursor). */
+/** Runs an inline command on the selection (or, for `continue`, the text before the cursor).
+ *  Output goes to the note the command started in, at a range that follows the user's edits,
+ *  and undoes in one step. */
 export async function inlineAI(kind: InlineKind) {
-  const view = app.views[app.focus];
-  if (!view || !app.activePath?.endsWith(".md")) return void (app.error = "Open a note first.");
+  const ed = app.focusedEditor();
+  const doc = ed?.doc();
+  if (!ed || !doc) return void (app.error = "Open a note first.");
   if (ai.busy || !ai.require()) return;
   const spec = INLINE[kind];
-  const sel = view.state.selection.main;
-  const text = kind === "continue" ? view.state.sliceDoc(Math.max(0, sel.head - 4000), sel.head) : view.state.sliceDoc(sel.from, sel.to);
+  const s = doc.state;
+  const sel = s.selection.main;
+  const text = kind === "continue" ? s.sliceDoc(Math.max(0, sel.head - 4000), sel.head) : s.sliceDoc(sel.from, sel.to);
   if (!text.trim()) return void (app.error = kind === "continue" ? "Write something first." : "Select some text first.");
 
-  // ponytail: assumes the user doesn't edit above the insertion point mid-stream; map positions if that bites.
-  let pos = kind === "continue" ? sel.head : spec.replace ? sel.from : sel.to;
+  const at = kind === "continue" ? sel.head : sel.to;
+  const original = spec.replace ? text : "";
+  ed.apply(doc, spec.replace ? begin(sel.from, sel.to) : begin(at, at));
   let first = true;
   try {
     await ai.stream(
       [{ role: "system", content: EDITOR_SYSTEM }, { role: "user", content: `${spec.prompt}\n\n${text}` }],
       (t) => {
-        const insert = first && kind === "summarize" ? "\n\n" + t : t;
-        const changes = first && spec.replace ? { from: sel.from, to: sel.to, insert } : { from: pos, insert };
-        view.dispatch({ changes, userEvent: "input.ai" });
-        pos = changes.from + insert.length;
+        const change = step(doc.state, first && kind === "summarize" ? "\n\n" + t : t, first && spec.replace);
+        // Stop if the user edited inside the output, or the note was trashed / its vault closed.
+        if (!change || !ed.apply(doc, change)) return void ai.stop();
         first = false;
       },
       spec.label,
     );
   } catch (e) {
     app.error = `AI: ${(e as Error).message}`;
+  } finally {
+    for (const f of finish(doc.state, original)) ed.apply(doc, f);
   }
 }
 

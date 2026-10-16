@@ -9,8 +9,8 @@ export type Doc<S> = {
   saved: string;
   /** Trashed, or its vault was closed: never written again. */
   closed?: boolean;
-  /** Pending retry after a failed save. */
-  retry?: ReturnType<typeof setTimeout>;
+  /** Pending deferred save, or retry after a failed one. */
+  timer?: ReturnType<typeof setTimeout>;
 };
 
 /** Writes `text`; `base` is what disk had at the last load/save. Resolves true when disk
@@ -58,7 +58,7 @@ export function closeDocs<S>(docs: Doc<S>[], path: string | null): Doc<S>[] {
   for (const d of docs) {
     if (path === null || under(d.path, path)) {
       d.closed = true;
-      clearTimeout(d.retry);
+      clearTimeout(d.timer);
     }
   }
   return docs.filter((d) => !d.closed);

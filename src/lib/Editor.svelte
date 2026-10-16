@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy, onMount } from "svelte";
   import { EditorView } from "@codemirror/view";
-  import type { EditorState, Transaction } from "@codemirror/state";
+  import type { EditorState, Transaction, TransactionSpec } from "@codemirror/state";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { createState, modeExtension, previewMode, type LinkHandler } from "./editor";
   import { api, dirname } from "./api";
@@ -13,6 +13,7 @@
   let host: HTMLDivElement;
   let view: EditorView;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let destroyed = false;
 
   const text = (s: EditorState) => s.doc.toString();
   const options = () => ({ live: app.settings.livePreview, onLink: () => onLink });
@@ -45,7 +46,7 @@
 
   /** Queues a save of `d`. On failure the edits stay in the doc and are retried every few seconds. */
   function persist(d: Doc<EditorState>): Promise<boolean> {
-    clearTimeout(d.retry);
+    clearTimeout(d.timer);
     return saveDoc(d, text, api.write).then(
       (conflict) => {
         if (conflict) app.error = `${d.path} was also changed outside FermiVault. Your version is saved; the other one is in File recovery.`;
@@ -54,7 +55,7 @@
       (e) => {
         if (d.closed) return false;
         app.error = `Couldn't save ${d.path}: ${e}. Your changes are kept and FermiVault keeps retrying.`;
-        d.retry = setTimeout(() => persist(d), 5000);
+        d.timer = setTimeout(() => persist(d), 5000);
         return false;
       },
     );
@@ -81,6 +82,19 @@
     },
     closed(path) {
       docs.closed(path);
+    },
+    doc: () => docs.doc,
+    apply(d, spec) {
+      if (d.closed) return false;
+      if (d === docs.doc && !destroyed) {
+        view.dispatch(spec);
+      } else {
+        // Not on screen (switched away, or the pane closed): edit its state and save shortly.
+        d.state = d.state.update(spec).state;
+        clearTimeout(d.timer);
+        d.timer = setTimeout(() => persist(d), 400);
+      }
+      return true;
     },
   };
 
@@ -148,6 +162,7 @@
   });
 
   onDestroy(() => {
+    destroyed = true;
     clearTimeout(timer);
     for (const d of docs.docs) persist(d); // pane closing: queue every unsaved note (saves use the doc, not the view)
     app.editors.delete(handle);

@@ -14,6 +14,7 @@ import { highlightSelectionMatches, searchKeymap } from "@codemirror/search";
 import { tags as t } from "@lezer/highlight";
 import { basename, dirname } from "./api";
 import { embedDepth, host, resolveFile, widgetField } from "./widgets";
+import { aiRange } from "./inline";
 
 export type LinkHandler = (target: string, kind: "wiki" | "md" | "url", newTab: boolean) => void;
 
@@ -292,6 +293,7 @@ export function createState(doc: string, o: EditorOptions): EditorState {
       EditorState.readOnly.of(!!o.readOnly),
       EditorView.editable.of(!o.readOnly),
       history(),
+      aiRange,
       drawSelection(),
       dropCursor(),
       rectangularSelection(),
