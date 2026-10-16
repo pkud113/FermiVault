@@ -7,6 +7,7 @@ export type LinkRef = { path: string; line: number; context: string };
 export type Snapshot = { id: string; time: number; size: number };
 export type Graph = { nodes: string[]; edges: [string, string][] };
 export type VaultConfig = { bookmarks?: string[]; dailyFolder?: string; templatesFolder?: string; dailyTemplate?: string; clipFolder?: string;
+  /** This and `plugins` are kept on this device, not in the vault (see src-tauri/src/device.rs). */
   gitAutoSync?: number;
   /** Plugins enabled on this device and the permissions the user granted each. */
   plugins?: Record<string, { enabled: boolean; permissions: string[] }>;
@@ -17,7 +18,7 @@ export type Endpoint = { name: string; base_url: string; models: string[] };
 export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 /** Result of a ```table``` query (see src-tauri/src/query.rs). */
 export type Table = { columns: string[]; rows: { path: string; cells: string[] }[]; total: number };
-export type GitStatus = { git: boolean; repo: boolean; branch: string | null; remote: string | null; changes: number };
+export type GitStatus = { git: boolean; repo: boolean; trusted: boolean; branch: string | null; remote: string | null; changes: number };
 export type GitSynced = { committed: number; pulled: boolean; pushed: boolean; conflicts: string[] };
 export type PluginInfo = { id: string; manifest: Record<string, unknown> | null; error: string | null };
 export type AiApp = { id: string; name: string; file: string; detected: boolean; connected: boolean; vault: string | null };

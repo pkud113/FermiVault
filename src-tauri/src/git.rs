@@ -17,6 +17,8 @@ pub struct Status {
     pub git: bool,
     /// The vault is the top level of a Git repository.
     pub repo: bool,
+    /// Git was set up for this vault on this device, so it's used (see `git_trusted` in lib.rs).
+    pub trusted: bool,
     pub branch: Option<String>,
     pub remote: Option<String>,
     /// Files changed since the last commit.
@@ -78,28 +80,29 @@ fn run_net(root: &Path, args: &[&str], interactive: bool) -> Res<String> {
     output_with(root, args, interactive).map(|o| String::from_utf8_lossy(&o).trim_end().to_string())
 }
 
-fn same_dir(a: &Path, b: &Path) -> bool {
-    match (a.canonicalize(), b.canonicalize()) {
-        (Ok(x), Ok(y)) => x == y,
-        _ => false,
-    }
-}
-
-/// The vault is the top level of its own repository (not a folder inside another one).
+/// The vault is the top level of its own repository (not a folder inside another one). Checked
+/// on disk, without running git in a repository that may not be trusted yet.
 fn own_repo(root: &Path) -> bool {
-    run(root, &["rev-parse", "--show-toplevel"]).is_ok_and(|top| same_dir(Path::new(&top), root))
+    root.join(".git").exists()
 }
 
-pub fn status(vault: &Vault) -> Status {
+/// `git` is installed (asked outside the vault, so no repository settings are read).
+fn installed() -> bool {
+    run(&std::env::temp_dir(), &["--version"]).is_ok()
+}
+
+/// `trusted: false` reports only what's on disk and never runs git in the vault.
+pub fn status(vault: &Vault, trusted: bool) -> Status {
     let root = &vault.root;
     let mut s = Status {
-        git: run(root, &["--version"]).is_ok(),
+        git: installed(),
+        repo: own_repo(root),
+        trusted,
         ..Default::default()
     };
-    if !s.git || !own_repo(root) {
+    if !s.git || !s.repo || !trusted {
         return s;
     }
-    s.repo = true;
     s.branch = run(root, &["rev-parse", "--abbrev-ref", "HEAD"]).ok().filter(|b| b != "HEAD");
     s.remote = run(root, &["remote", "get-url", "origin"]).ok();
     s.changes = run(root, &["status", "--porcelain"]).map_or(0, |o| o.lines().count());
@@ -155,7 +158,7 @@ fn commit_all(vault: &Vault, message: &str) -> Res<usize> {
 
 /// Makes the vault a Git repository (with `.fermi/` ignored) and commits what's there.
 pub fn init(vault: &Vault) -> Res<()> {
-    if run(&vault.root, &["--version"]).is_err() {
+    if !installed() {
         return Err("Git isn't installed. Get it from https://git-scm.com, then try again.".into());
     }
     if !own_repo(&vault.root) {
@@ -175,6 +178,9 @@ pub fn set_remote(vault: &Vault, url: &str) -> Res<()> {
         return Err("Set up Git for this vault first.".into());
     }
     let url = url.trim();
+    if url.starts_with('-') {
+        return Err(format!("Not a remote address: {url}"));
+    }
     let has = run(root, &["remote", "get-url", "origin"]).is_ok();
     match (has, url.is_empty()) {
         (true, true) => run(root, &["remote", "remove", "origin"]).map(|_| ()),
@@ -241,11 +247,13 @@ fn merge_keeping_both(vault: &Vault, upstream: &str) -> Res<Vec<String>> {
     }
     for path in &conflicted {
         // Theirs to a copy (if it still exists there), ours back in place.
-        if let Ok(theirs) = output(root, &["show", &format!("{upstream}:{path}")]) {
-            let (stem, ext) = path.rsplit_once('.').filter(|(s, _)| !s.ends_with('/')).unwrap_or((path, ""));
-            let dot = if ext.is_empty() { "" } else { "." };
-            let copy = format!("{stem} (conflict {}){dot}{ext}", today());
-            std::fs::write(vault.abs(&copy)?, theirs).map_err(err)?; // exact bytes: works for images too
+        // Hidden files (`.gitignore`, other apps' dot folders) aren't vault files: ours wins, theirs
+        // stays in the history.
+        let (stem, ext) = path.rsplit_once('.').filter(|(s, _)| !s.is_empty() && !s.ends_with('/')).unwrap_or((path, ""));
+        let dot = if ext.is_empty() { "" } else { "." };
+        let copy = vault.abs(&format!("{stem} (conflict {}){dot}{ext}", today()));
+        if let (Ok(copy), Ok(theirs)) = (copy, output(root, &["show", &format!("{upstream}:{path}")])) {
+            std::fs::write(copy, theirs).map_err(err)?; // exact bytes: works for images too
         }
         if run(root, &["checkout", "--ours", "--", path]).is_err() {
             let _ = run(root, &["rm", "-q", "--cached", "--", path]); // deleted on our side
@@ -298,10 +306,25 @@ mod tests {
         run(d.path(), &["init", "-q"]).unwrap();
         std::fs::create_dir(d.path().join("vault")).unwrap();
         let v = Vault::new(d.path().join("vault")).unwrap();
-        let s = status(&v);
+        let s = status(&v, true);
         assert!(s.git && !s.repo, "a folder inside another repo isn't the vault's repo");
         assert!(sync(&v, false).is_err());
+        assert!(init(&v).is_ok() && status(&v, true).repo, "setting up gives the vault its own repo");
         assert!(run(d.path(), &["log", "-1"]).is_err(), "the parent repo gets no commits");
+    }
+
+    #[test]
+    fn untrusted_repository_is_only_looked_at() {
+        if !git_ok() {
+            return;
+        }
+        let d = tempfile::tempdir().unwrap();
+        // Not a real repository: any git command run in it would fail or misbehave.
+        std::fs::write(d.path().join(".git"), "gitdir: /nowhere").unwrap();
+        let v = Vault::new(d.path()).unwrap();
+        let s = status(&v, false);
+        assert!(s.git && s.repo && !s.trusted && s.branch.is_none() && s.changes == 0, "{s:?}");
+        assert!(set_remote(&v, "--upload-pack=x").is_err());
     }
 
     #[test]
@@ -313,7 +336,7 @@ mod tests {
         let v = Vault::new(d.path()).unwrap();
         v.write("a.md", "hello").unwrap();
         init(&v).unwrap();
-        let s = status(&v);
+        let s = status(&v, true);
         assert!(s.repo && s.changes == 0, "{s:?}");
         assert!(std::fs::read_to_string(v.root.join(".gitignore")).unwrap().contains(".fermi/"));
         let tracked = run(&v.root, &["ls-files"]).unwrap();
@@ -359,7 +382,7 @@ mod tests {
             "line 1 from A\nline 2\n",
             "the remote's version is kept as a copy"
         );
-        assert!(status(&b).changes == 0);
+        assert!(status(&b, true).changes == 0);
         sync(&a, false).unwrap();
         assert_eq!(a.read(&copy).unwrap(), "line 1 from A\nline 2\n", "and both reach the other vault");
     }

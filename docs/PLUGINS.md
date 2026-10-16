@@ -31,7 +31,7 @@ A complete example is in [`docs/plugins/word-stats`](plugins/word-stats).
 | `write` | `fermi.vault.create/write/append`. Every change is snapshotted first, so the user can undo it from File recovery |
 | `editor` | `fermi.editor.selection/replaceSelection/insert` on the note that's open |
 
-The user approves the permissions when turning the plugin on. If a later version asks for more, it keeps only what was approved until the user turns it off and on again.
+The user approves the permissions when turning the plugin on. If a later version asks for more, it keeps only what was approved until the user turns it off and on again. Approvals are stored on each device, not in the vault, so a vault someone shares never arrives with its plugins turned on.
 
 ## The sandbox
 

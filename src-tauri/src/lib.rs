@@ -1,6 +1,7 @@
 pub mod ai;
 pub mod clip;
 pub mod connect;
+pub mod device;
 pub mod embed;
 pub mod git;
 pub mod index;
@@ -63,6 +64,23 @@ fn kick_embedder(app: &tauri::AppHandle, vault: &Vault) {
 
 fn state_file(app: &tauri::AppHandle) -> Res<std::path::PathBuf> {
     Ok(app.path().app_config_dir().map_err(err)?.join("state.json"))
+}
+
+/// This device's settings for the open vault (see `device.rs`).
+fn device_settings(app: &tauri::AppHandle, vault: &Vault) -> Res<serde_json::Map<String, Value>> {
+    let file = app.path().app_config_dir().map_err(err)?.join("vaults.json");
+    Ok(device::get(&file, &vault.root.to_string_lossy()))
+}
+
+fn set_device_settings(app: &tauri::AppHandle, vault: &Vault, patch: serde_json::Map<String, Value>) -> Res<()> {
+    let file = app.path().app_config_dir().map_err(err)?.join("vaults.json");
+    device::update(&file, &vault.root.to_string_lossy(), patch)
+}
+
+/// Git runs only in a vault where it was set up on this device: a repository's own settings
+/// can run programs, so one that arrived with a shared vault isn't used until you choose to.
+fn git_trusted(app: &tauri::AppHandle, vault: &Vault) -> bool {
+    device_settings(app, vault).is_ok_and(|d| d.get("gitTrusted") == Some(&Value::Bool(true)))
 }
 
 #[tauri::command]
@@ -225,28 +243,43 @@ async fn embed_install(app: tauri::AppHandle, state: State<'_, AppState>) -> Res
 
 /// Git sync (see `git.rs`). Git runs on a blocking thread: pushes and fetches can take a while.
 #[tauri::command]
-async fn git_status(state: State<'_, AppState>) -> Res<git::Status> {
+async fn git_status(app: tauri::AppHandle, state: State<'_, AppState>) -> Res<git::Status> {
     let v = state.get()?.vault.clone();
-    tauri::async_runtime::spawn_blocking(move || git::status(&v)).await.map_err(err)
+    let trusted = git_trusted(&app, &v);
+    tauri::async_runtime::spawn_blocking(move || git::status(&v, trusted)).await.map_err(err)
 }
 
+/// Sets up Git for the vault (or, for a repository that came with it, agrees to use it).
 #[tauri::command]
-async fn git_init(state: State<'_, AppState>) -> Res<()> {
+async fn git_init(app: tauri::AppHandle, state: State<'_, AppState>) -> Res<()> {
     let v = state.get()?.vault.clone();
+    let mut trust = serde_json::Map::new();
+    trust.insert("gitTrusted".into(), Value::Bool(true));
+    set_device_settings(&app, &v, trust)?;
     tauri::async_runtime::spawn_blocking(move || git::init(&v)).await.map_err(err)?
 }
 
+fn require_git(app: &tauri::AppHandle, v: &Vault) -> Res<()> {
+    if git_trusted(app, v) {
+        Ok(())
+    } else {
+        Err("Set up Git for this vault first: Settings → Sync.".into())
+    }
+}
+
 #[tauri::command]
-async fn git_set_remote(state: State<'_, AppState>, url: String) -> Res<()> {
+async fn git_set_remote(app: tauri::AppHandle, state: State<'_, AppState>, url: String) -> Res<()> {
     let v = state.get()?.vault.clone();
+    require_git(&app, &v)?;
     tauri::async_runtime::spawn_blocking(move || git::set_remote(&v, &url))
         .await
         .map_err(err)?
 }
 
 #[tauri::command]
-async fn git_sync(state: State<'_, AppState>, interactive: bool) -> Res<git::Synced> {
+async fn git_sync(app: tauri::AppHandle, state: State<'_, AppState>, interactive: bool) -> Res<git::Synced> {
     let v = state.get()?.vault.clone();
+    require_git(&app, &v)?;
     tauri::async_runtime::spawn_blocking(move || git::sync(&v, interactive))
         .await
         .map_err(err)?
@@ -362,13 +395,28 @@ async fn tagged(state: State<'_, AppState>, tag: String) -> Res<Vec<String>> {
 }
 
 #[tauri::command]
-async fn vault_config(state: State<'_, AppState>) -> Res<serde_json::Value> {
-    Ok(state.get()?.vault.config())
+/// The vault's settings, with this device's (plugins, Git) in place of any the vault carries.
+async fn vault_config(app: tauri::AppHandle, state: State<'_, AppState>) -> Res<serde_json::Value> {
+    let v = &state.get()?.vault;
+    let mut c = v.config();
+    device::split(&mut c);
+    if let Some(m) = c.as_object_mut() {
+        m.extend(device_settings(&app, v)?);
+    }
+    Ok(c)
 }
 
 #[tauri::command]
-async fn set_vault_config(state: State<'_, AppState>, value: serde_json::Value) -> Res<()> {
-    state.get()?.vault.set_config(&value)
+async fn set_vault_config(app: tauri::AppHandle, state: State<'_, AppState>, mut value: serde_json::Value) -> Res<()> {
+    let v = &state.get()?.vault;
+    let mut device = device::split(&mut value);
+    device.remove("gitTrusted"); // only setting up Git grants it
+    // Keys the UI dropped are cleared, so turning auto-sync or a plugin off sticks.
+    for k in device::KEYS.iter().filter(|k| **k != "gitTrusted") {
+        device.entry(*k).or_insert(Value::Null);
+    }
+    set_device_settings(&app, v, device)?;
+    v.set_config(&value)
 }
 
 #[tauri::command]
