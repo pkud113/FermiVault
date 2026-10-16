@@ -258,6 +258,11 @@
     return () => unlisten.forEach((u) => u.then((f) => f()));
   });
 
+  /** Local save state of the active note or canvas (Git sync is separate, further right). */
+  const savable = $derived(!!app.activePath && ["note", "canvas"].includes(kind(app.activePath)));
+  const activeSave = $derived(app.activePath ? app.saves[app.activePath] : undefined);
+  const failedElsewhere = $derived(Object.entries(app.saves).filter(([p, s]) => s.state === "failed" && p !== app.activePath).length);
+
   const words = $derived(app.activeDoc?.text.match(/\S+/g)?.length ?? 0);
 </script>
 
@@ -328,6 +333,10 @@
                 onauxclick={(e) => e.button === 1 && app.closeTab(pi, ti)}
               >
                 <span>{tab === GRAPH ? t("Graph") : basename(tab)}</span>
+                {#if app.saves[tab]}
+                  {@const s = app.saves[tab]}
+                  <span class="dirty" class:bad={s.state === "failed"} role="img" aria-label={s.state === "failed" ? t("Not saved") : t("Unsaved changes")} title={s.state === "failed" ? t("Not saved: {error}", { error: s.error ?? "" }) : t("Unsaved changes")}>●</span>
+                {/if}
                 <button class="x" aria-label={t("Close {tab}", { tab: tab === GRAPH ? t("Graph") : basename(tab) })} tabindex={ti === pane.active ? 0 : -1} onclick={(e) => (e.stopPropagation(), app.closeTab(pi, ti))}>✕</button>
               </div>
             {/each}
@@ -371,9 +380,25 @@
       <button class="mode gear" title={t("Settings (Ctrl+,)")} aria-label={t("Settings")} onclick={() => (app.showSettings = true)}><Icon name="settings" size={14} /></button>
       <span class="path">{app.activePath === GRAPH ? t("Graph") : (app.activePath ?? "")}</span>
       <span class="spacer"></span>
+      {#if failedElsewhere}
+        <button class="mode bad" onclick={() => app.flush()} title={t("Retry saving")}>
+          {t(failedElsewhere === 1 ? "1 other file not saved · Retry" : "{n} other files not saved · Retry", { n: failedElsewhere })}
+        </button>
+      {/if}
+      {#if savable}
+        {#if activeSave?.state === "failed"}
+          <button class="mode bad" onclick={() => app.flush()} title={t("Not saved: {error}", { error: activeSave.error ?? "" })}>{t("Not saved · Retry")}</button>
+        {:else if activeSave?.state === "saving"}
+          <span class="save">{t("Saving…")}</span>
+        {:else if activeSave}
+          <span class="save">{t("Unsaved changes")}</span>
+        {:else}
+          <span class="save">{t("Saved")}</span>
+        {/if}
+      {/if}
       {#if app.sync.busy || app.sync.last || app.sync.error || app.config.gitAutoSync}
         <button class="mode" class:bad={!!app.sync.error} title={app.sync.error ?? t("Sync with Git now")} onclick={() => app.syncNow()}>
-          {app.sync.busy ? t("Syncing…") : app.sync.error ? t("Sync failed") : app.sync.last ? t("Synced {when}", { when: ago(app.sync.last) }) : t("Sync")}
+          {app.sync.busy ? t("Git: syncing…") : app.sync.error ? t("Git: sync failed") : app.sync.last ? t("Git: synced {when}", { when: ago(app.sync.last) }) : t("Git: sync")}
         </button>
       {/if}
       {#if ai.busy}
@@ -588,6 +613,14 @@
   .tab.on {
     background: var(--fv-active);
     color: var(--fv-text);
+  }
+  .dirty {
+    font-size: 9px;
+    color: var(--fv-faint);
+    margin-right: -2px;
+  }
+  .dirty.bad {
+    color: var(--fv-danger);
   }
   .x {
     border: none;

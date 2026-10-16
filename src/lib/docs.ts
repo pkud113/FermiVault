@@ -130,3 +130,15 @@ export class PaneDocs<S> {
     if (this.doc?.closed) this.doc = null;
   }
 }
+
+/** A file whose latest edits aren't on disk yet (a saved file has none). */
+export type SaveState = { state: "pending" | "saving" | "failed"; error?: string };
+
+/** The next save state of a file after `event`. A failure stays visible until a save succeeds:
+ *  retries and further typing don't hide it. `null`: everything is on disk. */
+export function nextSave(cur: SaveState | undefined, event: "edit" | "saving" | "saved" | "failed", error?: string): SaveState | null {
+  if (event === "saved") return null;
+  if (event === "failed") return { state: "failed", error };
+  if (cur?.state === "failed") return cur;
+  return { state: event === "edit" ? "pending" : "saving" };
+}

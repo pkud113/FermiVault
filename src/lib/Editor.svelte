@@ -52,13 +52,17 @@
   /** Queues a save of `d`. On failure the edits stay in the doc and are retried every few seconds. */
   function persist(d: Doc<EditorState>): Promise<boolean> {
     clearTimeout(d.timer);
+    if (!d.closed && text(d.state) !== d.saved) app.setSave(d.path, "saving");
     return saveDoc(d, text, api.write).then(
       (conflict) => {
+        // Typed again while this save ran: the next one is already scheduled.
+        app.setSave(d.path, !d.closed && text(d.state) !== d.saved ? "edit" : "saved");
         if (conflict) app.error = t("{path} was also changed outside FermiVault. Your version is saved; the other one is in File recovery.", { path: d.path });
         return true;
       },
       (e) => {
-        if (d.closed) return false;
+        if (d.closed) return (app.setSave(d.path, "saved"), false);
+        app.setSave(d.path, "failed", String(e));
         app.error = t("Couldn't save {path}: {error}. Your changes are kept and FermiVault keeps retrying.", { path: d.path, error: String(e) });
         d.timer = setTimeout(() => persist(d), 5000);
         return false;
@@ -96,6 +100,7 @@
       } else {
         // Not on screen (switched away, or the pane closed): edit its state and save shortly.
         d.state = d.state.update(spec).state;
+        app.setSave(d.path, "edit");
         clearTimeout(d.timer);
         d.timer = setTimeout(() => persist(d), 400);
       }
@@ -152,7 +157,8 @@
         if (!d && trs.some((t) => t.docChanged)) return;
         v.update(trs);
         if (d) d.state = v.state;
-        if (trs.some((t) => t.docChanged)) {
+        if (d && trs.some((t) => t.docChanged)) {
+          app.setSave(d.path, "edit");
           clearTimeout(timer);
           timer = setTimeout(() => {
             save();
