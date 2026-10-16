@@ -230,6 +230,34 @@ mod tests {
         assert!(set_key("http://192.168.1.20:11434", Some("k")).is_err());
     }
 
+    /// Reads a whole HTTP request (headers + body) so the fake server never closes a socket
+    /// with unread data, which makes Windows reset the connection.
+    fn read_request(s: &mut std::net::TcpStream) {
+        let mut req = Vec::new();
+        let mut buf = [0u8; 4096];
+        loop {
+            let n = s.read(&mut buf).unwrap();
+            req.extend_from_slice(&buf[..n]);
+            let text = String::from_utf8_lossy(&req);
+            if let Some(end) = text.find("\r\n\r\n") {
+                let len = text[..end]
+                    .lines()
+                    .find_map(|l| {
+                        l.to_ascii_lowercase()
+                            .strip_prefix("content-length:")
+                            .map(|v| v.trim().parse::<usize>().unwrap())
+                    })
+                    .unwrap_or(0);
+                if req.len() >= end + 4 + len {
+                    return;
+                }
+            }
+            if n == 0 {
+                return;
+            }
+        }
+    }
+
     /// A server answering with a redirect must not get the request (and its note text) forwarded.
     #[test]
     fn redirects_are_not_followed() {
@@ -237,8 +265,7 @@ mod tests {
         let addr = listener.local_addr().unwrap();
         std::thread::spawn(move || {
             let (mut s, _) = listener.accept().unwrap();
-            let mut buf = [0u8; 8192];
-            let _ = s.read(&mut buf);
+            read_request(&mut s);
             write!(
                 s,
                 "HTTP/1.1 307 Temporary Redirect\r\nLocation: http://192.0.2.1/x\r\nContent-Length: 0\r\n\r\n"
@@ -256,31 +283,7 @@ mod tests {
         let addr = listener.local_addr().unwrap();
         std::thread::spawn(move || {
             let (mut s, _) = listener.accept().unwrap();
-            // Read the whole request (headers + JSON body) before replying; closing a
-            // socket with unread data makes Windows reset the connection.
-            let mut req = Vec::new();
-            let mut buf = [0u8; 4096];
-            loop {
-                let n = s.read(&mut buf).unwrap();
-                req.extend_from_slice(&buf[..n]);
-                let text = String::from_utf8_lossy(&req);
-                if let Some(end) = text.find("\r\n\r\n") {
-                    let len = text[..end]
-                        .lines()
-                        .find_map(|l| {
-                            l.to_ascii_lowercase()
-                                .strip_prefix("content-length:")
-                                .map(|v| v.trim().parse::<usize>().unwrap())
-                        })
-                        .unwrap_or(0);
-                    if req.len() >= end + 4 + len {
-                        break;
-                    }
-                }
-                if n == 0 {
-                    break;
-                }
-            }
+            read_request(&mut s);
             let body = "data: {\"choices\":[{\"delta\":{\"content\":\"Hel\"}}]}\n\n\
                         data: {\"choices\":[{\"delta\":{\"content\":\"lo\"}}]}\n\ndata: [DONE]\n\n";
             write!(
