@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { LANGUAGES, t } from "./i18n.svelte";
+  import { LANGUAGES, keys, t } from "./i18n.svelte";
   import { tk } from "./tk";
   import { app } from "./store.svelte";
   import AiSettings from "./AiSettings.svelte";
@@ -64,7 +64,7 @@
           </label>
         {:else if app.settingsSection === "editor"}
           <label>
-            <span>{t("Live preview")} <small>{t("Hide Markdown syntax away from the cursor (Ctrl+E toggles)")}</small></span>
+            <span>{t("Live preview")} <small>{t("Hide Markdown syntax away from the cursor ({keys} toggles)", { keys: keys("Ctrl+E") })}</small></span>
             <input type="checkbox" bind:checked={app.settings.livePreview} />
           </label>
           <label>

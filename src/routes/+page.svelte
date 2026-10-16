@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { setLanguage, t } from "$lib/i18n.svelte";
+  import { keys, setLanguage, t } from "$lib/i18n.svelte";
   import { tk } from "$lib/tk";
   import { onMount, tick } from "svelte";
   import { startup } from "$lib/startup";
@@ -283,14 +283,14 @@
       <aside class="left">
         <div class="switch">
           <div class="views" role="tablist" aria-label={t("Sidebar")} use:tabKeys>
-            {#each [["files", tk("Files")], ["search", tk("Search (Ctrl+Shift+F)")], ["tags", tk("Tags")], ["bookmarks", tk("Bookmarks")], ["ai", tk("AI apps")]] as const as [id, label]}
+            {#each [["files", tk("Files"), ""], ["search", tk("Search"), "Ctrl+Shift+F"], ["tags", tk("Tags"), ""], ["bookmarks", tk("Bookmarks"), ""], ["ai", tk("AI apps"), ""]] as const as [id, label, combo]}
               <button
                 role="tab"
                 aria-selected={app.left === id}
                 tabindex={app.left === id ? 0 : -1}
                 class:on={app.left === id}
                 onclick={() => (app.left = id)}
-                title={t(label)}
+                title={combo ? `${t(label)} (${keys(combo)})` : t(label)}
                 aria-label={t(label)}
               >
                 <Icon name={id} />
@@ -298,8 +298,8 @@
             {/each}
           </div>
           <span class="spacer"></span>
-          <button title={t("Today's daily note (Ctrl+Shift+D)")} aria-label={t("Daily note")} onclick={() => app.dailyNote()}><Icon name="calendar" /></button>
-          <button title={t("Graph view (Alt+G)")} aria-label={t("Graph view")} onclick={() => app.open(GRAPH, true)}><Icon name="graph" /></button>
+          <button title={`${t("Today's daily note")} (${keys("Ctrl+Shift+D")})`} aria-label={t("Daily note")} onclick={() => app.dailyNote()}><Icon name="calendar" /></button>
+          <button title={`${t("Graph view")} (${keys("Alt+G")})`} aria-label={t("Graph view")} onclick={() => app.open(GRAPH, true)}><Icon name="graph" /></button>
         </div>
         {#if app.left === "files"}<FileTree />
         {:else if app.left === "search"}<SearchPane />
@@ -354,12 +354,12 @@
               {:else}<Viewer path={tab} />{/if}
             {:else}
               <div class="empty">
-                <button onclick={() => (app.palette = { kind: "switcher" })}>{t("Open a note")} <kbd>Ctrl O</kbd></button>
-                <button onclick={() => app.newNote()}>{t("New note")} <kbd>Ctrl N</kbd></button>
-                <button onclick={() => app.dailyNote()}>{t("Today's daily note")} <kbd>Ctrl Shift D</kbd></button>
-                <button onclick={() => app.open(GRAPH, true)}>{t("Graph view")} <kbd>Alt G</kbd></button>
-                <button onclick={() => (app.palette = { kind: "commands" })}>{t("All commands")} <kbd>Ctrl P</kbd></button>
-                <button onclick={() => (app.showSettings = true)}>{t("Settings")} <kbd>Ctrl ,</kbd></button>
+                <button onclick={() => (app.palette = { kind: "switcher" })}>{t("Open a note")} <kbd>{keys("Ctrl+O")}</kbd></button>
+                <button onclick={() => app.newNote()}>{t("New note")} <kbd>{keys("Ctrl+N")}</kbd></button>
+                <button onclick={() => app.dailyNote()}>{t("Today's daily note")} <kbd>{keys("Ctrl+Shift+D")}</kbd></button>
+                <button onclick={() => app.open(GRAPH, true)}>{t("Graph view")} <kbd>{keys("Alt+G")}</kbd></button>
+                <button onclick={() => (app.palette = { kind: "commands" })}>{t("All commands")} <kbd>{keys("Ctrl+P")}</kbd></button>
+                <button onclick={() => (app.showSettings = true)}>{t("Settings")} <kbd>{keys("Ctrl+,")}</kbd></button>
               </div>
             {/if}
           </div>
@@ -377,7 +377,7 @@
     {/if}
 
     <footer>
-      <button class="mode gear" title={t("Settings (Ctrl+,)")} aria-label={t("Settings")} onclick={() => (app.showSettings = true)}><Icon name="settings" size={14} /></button>
+      <button class="mode gear" title={`${t("Settings")} (${keys("Ctrl+,")})`} aria-label={t("Settings")} onclick={() => (app.showSettings = true)}><Icon name="settings" size={14} /></button>
       <span class="path">{app.activePath === GRAPH ? t("Graph") : (app.activePath ?? "")}</span>
       <span class="spacer"></span>
       {#if failedElsewhere}
@@ -406,14 +406,15 @@
         <button class="mode" onclick={() => ai.stop()}>{t("Stop")}</button>
       {/if}
       {#if app.activePath?.endsWith(".md")}
-        <button class="mode" onclick={() => app.toggleBookmark(app.activePath)} title={t("Bookmark this note")}>
-          {app.isBookmarked(app.activePath) ? "★ Bookmarked" : "☆ Bookmark"}
+        <button class="mode" onclick={() => app.toggleBookmark(app.activePath)} title={t("Bookmark this note")} aria-pressed={app.isBookmarked(app.activePath)}>
+          <span aria-hidden="true">{app.isBookmarked(app.activePath) ? "★" : "☆"}</span>
+          {app.isBookmarked(app.activePath) ? t("Bookmarked") : t("Bookmark")}
         </button>
         <span>{t("{words} words · {chars} chars", { words: words.toLocaleString(), chars: (app.activeDoc?.text.length ?? 0).toLocaleString() })}</span>
       {/if}
       {#if app.activePath && kind(app.activePath) === "note"}
         <!-- Only notes have a live preview / source mode. -->
-        <button class="mode" onclick={() => (app.settings.livePreview = !app.settings.livePreview)} title={t("Switch between live preview and source (Ctrl+E)")}>
+        <button class="mode" onclick={() => (app.settings.livePreview = !app.settings.livePreview)} title={`${t("Switch between live preview and source")} (${keys("Ctrl+E")})`}>
           {app.settings.livePreview ? t("Live preview") : t("Source")}
         </button>
       {/if}

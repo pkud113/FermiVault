@@ -110,3 +110,15 @@ test("callout titles are readable on their tinted surface, both themes (UI-02)",
     }
   }
 });
+
+test("shortcuts read the way the keyboard is labelled", async () => {
+  const { formatKeys } = await import("../src/lib/ui.ts");
+  const de = (s: string) => ({ Ctrl: "Strg", Shift: "Umschalt", Enter: "Eingabe" })[s] ?? s;
+  assert.equal(formatKeys("Ctrl+Shift+D", de, false), "Strg+Umschalt+D");
+  assert.equal(formatKeys("Ctrl+,", de, false), "Strg+,");
+  assert.equal(formatKeys("Ctrl+\\", de, false), "Strg+\\");
+  assert.equal(formatKeys("Ctrl+Shift+Enter", de, false), "Strg+Umschalt+Eingabe");
+  assert.equal(formatKeys("Alt+G", (s) => s, false), "Alt+G");
+  assert.equal(formatKeys("Ctrl+Shift+F", (s) => s, true), "⌘⇧F");
+  assert.equal(formatKeys("Alt+G", (s) => s, true), "⌥G");
+});
