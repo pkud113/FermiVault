@@ -182,7 +182,7 @@ export async function open(opts = {}) {
       return page.js(`document.querySelector(${JSON.stringify(sel)})?.innerText ?? null`);
     },
     /** Clicks the innermost element matching `sel` whose text or aria-label is `label` (or the first match). */
-    async click(sel, label) {
+    async click(sel, label, opts = {}) {
       const pos = await page.js(`(() => {
         const want = ${JSON.stringify(label ?? null)};
         const hit = (e) => want === null || e.getAttribute("aria-label") === want || e.textContent.trim() === want;
@@ -193,7 +193,7 @@ export async function open(opts = {}) {
         return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
       })()`);
       if (!pos) throw new Error(`nothing to click: ${sel} ${label ?? ""}`);
-      for (const type of ["mousePressed", "mouseReleased"]) await send("Input.dispatchMouseEvent", { type, x: pos.x, y: pos.y, button: "left", clickCount: 1 });
+      for (const type of ["mousePressed", "mouseReleased"]) await send("Input.dispatchMouseEvent", { type, x: pos.x, y: pos.y, button: "left", clickCount: 1, modifiers: opts.ctrl ? 2 : 0 });
       await page.settle(120);
     },
     /** A key or combo like "Ctrl+\\", "Escape", "Ctrl+Shift+F". */
@@ -226,14 +226,14 @@ export async function open(opts = {}) {
       await page.until(`!!document.querySelector(".shell")`, "the vault to open");
     },
     /** Opens a vault file from the file tree (top-level names, or "folder/name"). */
-    async openFile(name) {
+    async openFile(name, opts = {}) {
       const label = name.split("/").pop();
       if (name.includes("/")) {
         const dir = name.split("/")[0];
         await page.js(`(() => { const r = [...document.querySelectorAll(".tree .row, [data-i]")].find((e) => e.textContent.trim() === ${JSON.stringify(dir)}); r && r.textContent.includes("▸") && r.click(); })()`);
         await page.settle(100);
       }
-      await page.click("[data-i]", label);
+      await page.click("[data-i]", label, opts);
     },
     async close() {
       await cdp.send("Target.closeTarget", { targetId });

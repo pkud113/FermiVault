@@ -3,7 +3,7 @@
   import { diffChange, readProps, removeProp, setProp, type PropValue } from "./frontmatter";
   import { app } from "./store.svelte";
 
-  const props = $derived(readProps(app.docText));
+  const props = $derived(readProps(app.activeDoc?.text ?? ""));
   let newKey = $state("");
   let newValue = $state("");
 
@@ -11,7 +11,7 @@
   function edit(fn: (text: string) => string) {
     const ed = app.focusedEditor();
     const doc = ed?.doc();
-    if (!ed || !doc) return void (app.error = t("Open a note first."));
+    if (!ed || !doc || doc.path !== app.activeDoc?.path) return void (app.error = t("Open a note first."));
     const text = doc.state.doc.toString();
     const next = fn(text);
     if (next !== text) ed.apply(doc, { changes: diffChange(text, next) });

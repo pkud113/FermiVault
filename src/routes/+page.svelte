@@ -258,7 +258,7 @@
     return () => unlisten.forEach((u) => u.then((f) => f()));
   });
 
-  const words = $derived(app.docText.match(/\S+/g)?.length ?? 0);
+  const words = $derived(app.activeDoc?.text.match(/\S+/g)?.length ?? 0);
 </script>
 
 <svelte:window onkeydown={keydown} bind:innerWidth={vw} />
@@ -384,7 +384,7 @@
         <button class="mode" onclick={() => app.toggleBookmark(app.activePath)} title={t("Bookmark this note")}>
           {app.isBookmarked(app.activePath) ? "★ Bookmarked" : "☆ Bookmark"}
         </button>
-        <span>{t("{words} words · {chars} chars", { words: words.toLocaleString(), chars: app.docText.length.toLocaleString() })}</span>
+        <span>{t("{words} words · {chars} chars", { words: words.toLocaleString(), chars: (app.activeDoc?.text.length ?? 0).toLocaleString() })}</span>
       {/if}
       <button class="mode" onclick={() => (app.settings.livePreview = !app.settings.livePreview)} title="Ctrl+E">
         {app.settings.livePreview ? t("Live preview") : t("Source")}

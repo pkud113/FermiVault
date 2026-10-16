@@ -45,7 +45,8 @@
   };
 
   function publish() {
-    if (app.focus === pane) app.docText = view.state.doc.toString();
+    const d = docs.doc;
+    if (app.focus === pane && d) app.doc = { path: d.path, text: view.state.doc.toString() };
   }
 
   /** Queues a save of `d`. On failure the edits stay in the doc and are retried every few seconds. */

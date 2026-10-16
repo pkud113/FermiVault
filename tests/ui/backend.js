@@ -1,3 +1,4 @@
+// @ts-nocheck -- injected into the test page as plain JS; not part of the app.
 // A stand-in for FermiVault's Rust backend, injected into the page before the app loads so the
 // real frontend build runs in a headless browser (see harness.mjs). Notes live in memory.
 // `window.__fv` lets tests control it: hold or fail commands, emit backend events, inspect calls.

@@ -21,7 +21,7 @@
       { role: "user" as const, content: t.q },
       { role: "assistant" as const, content: t.a },
     ]);
-    const note = withNote && app.activePath?.endsWith(".md") ? { path: app.activePath, text: app.docText } : null;
+    const note = withNote ? app.activeDoc : null;
     turns.push({ q, a: "", sources: [], done: false });
     const turn = turns[turns.length - 1];
     try {

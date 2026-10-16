@@ -80,8 +80,9 @@ class App {
   palette = $state<PaletteMode | null>(null);
   showSettings = $state(false);
   settings = $state<Settings>(loadSettings());
-  /** Text of the focused editor (outline, word count). */
-  docText = $state("");
+  /** The note the focused editor last showed, with its text (outline, properties, word count).
+   *  Read it through `activeDoc`, which is null when the active tab is something else. */
+  doc = $state<{ path: string; text: string } | null>(null);
   /** Bumped whenever files change on disk; panels re-query on change. */
   version = $state(0);
   error = $state<string | null>(null);
@@ -107,6 +108,12 @@ class App {
   get activePath(): string | null {
     const p = this.panes[this.focus];
     return p?.tabs[p.active] ?? null;
+  }
+
+  /** The active tab's note text, or null when the active tab isn't a loaded note (a canvas,
+   *  PDF or the graph, or a note still loading): panels never show another file's content. */
+  get activeDoc(): { path: string; text: string } | null {
+    return this.doc && this.doc.path === this.activePath ? this.doc : null;
   }
 
   saveSettings() {
