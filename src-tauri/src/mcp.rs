@@ -374,6 +374,12 @@ mod tests {
         assert_eq!(v.snapshots("Home.md").len(), 3);
 
         assert!(call(&mut s, "read_note", json!({"path": "../secret"})).1);
+        if cfg!(windows) {
+            // A drive-relative name must not resolve against the process's working directory.
+            assert!(call(&mut s, "create_note", json!({"path": "safe/C:outside", "content": "x"})).1);
+            assert!(call(&mut s, "read_note", json!({"path": "safe/C:outside.md"})).1);
+            assert!(!std::path::Path::new("outside.md").exists());
+        }
         assert!(
             call(&mut s, "rename_note", json!({"from": "Home", "to": "Start"}))
                 .0
