@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "./i18n.svelte";
   import { diffChange, readProps, removeProp, setProp, type PropValue } from "./frontmatter";
   import { app } from "./store.svelte";
 
@@ -10,7 +11,7 @@
   function edit(fn: (text: string) => string) {
     const ed = app.focusedEditor();
     const doc = ed?.doc();
-    if (!ed || !doc) return void (app.error = "Open a note first.");
+    if (!ed || !doc) return void (app.error = t("Open a note first."));
     const text = doc.state.doc.toString();
     const next = fn(text);
     if (next !== text) ed.apply(doc, { changes: diffChange(text, next) });
@@ -23,7 +24,7 @@
   function add() {
     const key = newKey.trim();
     if (!key) return;
-    edit((t) => setProp(t, key, value(newValue, newValue.includes(","))));
+    edit((text) => setProp(text, key, value(newValue, newValue.includes(","))));
     newKey = newValue = "";
   }
 </script>
@@ -32,28 +33,28 @@
   <div class="prop">
     <span class="key" title={p.key}>{p.key}</span>
     {#if kind(p.value) === "check"}
-      <input type="checkbox" aria-label={p.key} checked={p.value === "true"} onchange={(e) => edit((t) => setProp(t, p.key, e.currentTarget.checked ? "true" : "false"))} />
+      <input type="checkbox" aria-label={p.key} checked={p.value === "true"} onchange={(e) => edit((text) => setProp(text, p.key, e.currentTarget.checked ? "true" : "false"))} />
       <span class="spacer"></span>
     {:else if kind(p.value) === "date"}
-      <input type="date" aria-label={p.key} value={p.value} onchange={(e) => edit((t) => setProp(t, p.key, e.currentTarget.value))} />
+      <input type="date" aria-label={p.key} value={p.value} onchange={(e) => edit((text) => setProp(text, p.key, e.currentTarget.value))} />
     {:else}
       <input
         aria-label={p.key}
         value={Array.isArray(p.value) ? p.value.join(", ") : p.value}
-        placeholder={Array.isArray(p.value) ? "a, b, c" : "empty"}
-        onchange={(e) => edit((t) => setProp(t, p.key, value(e.currentTarget.value, Array.isArray(p.value))))}
+        placeholder={Array.isArray(p.value) ? "a, b, c" : t("empty")}
+        onchange={(e) => edit((text) => setProp(text, p.key, value(e.currentTarget.value, Array.isArray(p.value))))}
       />
     {/if}
-    <button class="x" aria-label="Remove {p.key}" title="Remove property" onclick={() => edit((t) => removeProp(t, p.key))}>✕</button>
+    <button class="x" aria-label={t("Remove {property}", { property: p.key })} title={t("Remove property")} onclick={() => edit((text) => removeProp(text, p.key))}>✕</button>
   </div>
 {:else}
-  <div class="empty">No properties yet. They're stored as YAML at the top of the note, and tables can filter and sort by them.</div>
+  <div class="empty">{t("No properties yet. They're stored as YAML at the top of the note, and tables can filter and sort by them.")}</div>
 {/each}
 
 <form class="add" onsubmit={(e) => (e.preventDefault(), add())}>
-  <input placeholder="Property" aria-label="New property name" bind:value={newKey} spellcheck="false" />
-  <input placeholder="Value (a, b for a list)" aria-label="New property value" bind:value={newValue} />
-  <button disabled={!newKey.trim()}>Add</button>
+  <input placeholder={t("Property")} aria-label={t("New property name")} bind:value={newKey} spellcheck="false" />
+  <input placeholder={t("Value (a, b for a list)")} aria-label={t("New property value")} bind:value={newValue} />
+  <button disabled={!newKey.trim()}>{t("Add")}</button>
 </form>
 
 <style>

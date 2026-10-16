@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "./i18n.svelte";
   import { onMount } from "svelte";
   import { api, basename, dirname, type Hit } from "./api";
   import { app } from "./store.svelte";
@@ -25,8 +26,8 @@
 </script>
 
 <div class="wrap">
-  <input bind:this={input} bind:value={q} placeholder="Search vault…" spellcheck="false" />
-  {#if q.trim()}<div class="count">{hits.length}{hits.length === 50 ? "+" : ""} results</div>{/if}
+  <input bind:this={input} bind:value={q} placeholder={t("Search vault…")} spellcheck="false" />
+  {#if q.trim()}<div class="count">{t(hits.length === 1 ? "1 result" : "{n} results", { n: `${hits.length}${hits.length === 50 ? "+" : ""}` })}</div>{/if}
   <div class="results">
     {#each hits as h (h.path)}
       <button class="hit" onclick={(e) => app.open(h.path, e.ctrlKey || e.metaKey)}>

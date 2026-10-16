@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "./i18n.svelte";
   import { tick } from "svelte";
   import { api, dirname, join, type Entry } from "./api";
   import { app } from "./store.svelte";
@@ -68,7 +69,7 @@
   }
 
   async function newFolder(dir: string) {
-    const name = await app.ask("New folder name");
+    const name = await app.ask(t("New folder name"));
     if (!name) return;
     await api.mkdir(join(dir, name)).catch((e) => (app.error = String(e)));
     await app.refreshFiles();
@@ -86,9 +87,9 @@
 <svelte:window onclick={() => (menu = null)} />
 
 <div class="head">
-  <button title="New note" onclick={() => app.newNote("")}>＋ Note</button>
-  <button title="New folder" onclick={() => newFolder("")}>＋ Folder</button>
-  <button title="Collapse all" aria-label="Collapse all folders" onclick={() => (collapsed = new Set(app.files.filter((f) => f.dir).map((f) => f.path)))}><Icon name="collapse" size={15} /></button>
+  <button title={t("New note")} onclick={() => app.newNote("")}>{t("＋ Note")}</button>
+  <button title={t("New folder")} onclick={() => newFolder("")}>{t("＋ Folder")}</button>
+  <button title={t("Collapse all")} aria-label={t("Collapse all folders")} onclick={() => (collapsed = new Set(app.files.filter((f) => f.dir).map((f) => f.path)))}><Icon name="collapse" size={15} /></button>
 </div>
 <div
   class="tree"
@@ -157,17 +158,17 @@
   {@const target = menu.entry}
   {@const dir = target ? (target.dir ? target.path : dirname(target.path)) : ""}
   <div class="menu" style="left:{menu.x}px; top:{menu.y}px" role="menu" tabindex="-1" use:menuKeys={() => ((menu?.from?.focus()), (menu = null))}>
-    <button role="menuitem" onclick={() => app.newNote(dir)}>New note</button>
-    <button role="menuitem" onclick={() => app.newCanvas(dir)}>New canvas</button>
-    <button role="menuitem" onclick={() => newFolder(dir)}>New folder</button>
+    <button role="menuitem" onclick={() => app.newNote(dir)}>{t("New note")}</button>
+    <button role="menuitem" onclick={() => app.newCanvas(dir)}>{t("New canvas")}</button>
+    <button role="menuitem" onclick={() => newFolder(dir)}>{t("New folder")}</button>
     {#if target}
-      {#if !target.dir}<button role="menuitem" onclick={() => app.open(target.path, true)}>Open in new tab</button>{/if}
+      {#if !target.dir}<button role="menuitem" onclick={() => app.open(target.path, true)}>{t("Open in new tab")}</button>{/if}
       {#if target.path.endsWith(".md")}
-        <button role="menuitem" onclick={() => app.toggleBookmark(target.path)}>{app.isBookmarked(target.path) ? "Remove bookmark" : "Bookmark"}</button>
-        <button role="menuitem" onclick={() => (app.recovery = target.path)}>File recovery…</button>
+        <button role="menuitem" onclick={() => app.toggleBookmark(target.path)}>{app.isBookmarked(target.path) ? t("Remove bookmark") : t("Bookmark")}</button>
+        <button role="menuitem" onclick={() => (app.recovery = target.path)}>{t("File recovery…")}</button>
       {/if}
-      <button role="menuitem" onclick={() => app.rename(target.path, target.dir)}>Rename…</button>
-      <button role="menuitem" class="danger" onclick={() => app.remove(target.path)}>Delete</button>
+      <button role="menuitem" onclick={() => app.rename(target.path, target.dir)}>{t("Rename…")}</button>
+      <button role="menuitem" class="danger" onclick={() => app.remove(target.path)}>{t("Delete")}</button>
     {/if}
   </div>
 {/if}

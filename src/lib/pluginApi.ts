@@ -2,13 +2,15 @@
 // the app enforces on every request (`dispatch`). Pure, so tests/plugins.test.ts runs the real
 // worker-side code in a sandbox. See docs/PLUGINS.md for the plugin author's view.
 
+import { tk } from "./tk.ts";
+
 export type Permission = "read" | "write" | "editor";
 
 /** What each permission lets a plugin do, as shown when the user enables it. */
 export const PERMISSIONS: Record<Permission, string> = {
-  read: "Read every note and search the vault",
-  write: "Create and change notes (each change can be undone from File recovery)",
-  editor: "Read and replace the text you have selected",
+  read: tk("Read every note and search the vault"),
+  write: tk("Create and change notes (each change can be undone from File recovery)"),
+  editor: tk("Read and replace the text you have selected"),
 };
 
 /** The permission each API call needs (`null`: always allowed). */

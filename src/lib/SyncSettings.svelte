@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "./i18n.svelte";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { api, type GitStatus } from "./api";
   import { app } from "./store.svelte";
@@ -30,34 +31,34 @@
 </script>
 
 <div class="block">
-  <div class="title">Sync with Git <small>Version history for this vault, and sync through any Git host (GitHub, GitLab, your own server).</small></div>
+  <div class="title">{t("Sync with Git")} <small>{t("Version history for this vault, and sync through any Git host (GitHub, GitLab, your own server).")}</small></div>
   {#if !status}
-    <small>Checking…</small>
+    <small>{t("Checking…")}</small>
   {:else if !status.git}
-    <small>Git isn't installed. <button class="link" onclick={() => openUrl("https://git-scm.com/downloads")}>Get Git</button>, then reopen Settings.</small>
+    <small>{t("Git isn't installed.")} <button class="link" onclick={() => openUrl("https://git-scm.com/downloads")}>{t("Get Git")}</button>{t(", then reopen Settings.")}</small>
   {:else if !status.repo}
-    <small>This vault isn't a Git repository. Setting it up commits your notes locally; <code>.fermi/</code> (app data) is left out.</small>
-    <button class="primary" disabled={busy} onclick={() => step(() => api.gitInit())}>Set up Git for this vault</button>
+    <small>{t("This vault isn't a Git repository. Setting it up commits your notes locally;")} <code>.fermi/</code> {t("(app data) is left out.")}</small>
+    <button class="primary" disabled={busy} onclick={() => step(() => api.gitInit())}>{t("Set up Git for this vault")}</button>
   {:else}
     <small>
-      Branch <code>{status.branch ?? "?"}</code> · {status.changes ? `${status.changes} change${status.changes === 1 ? "" : "s"} not yet synced` : "everything committed"}
+      {t("Branch")} <code>{status.branch ?? "?"}</code> · {status.changes ? t(status.changes === 1 ? "1 change not yet synced" : "{n} changes not yet synced", { n: status.changes }) : t("everything committed")}
     </small>
     <div class="row">
-      <input bind:value={remote} placeholder="Remote URL (https://github.com/you/notes.git)" aria-label="Remote URL" spellcheck="false" />
-      <button disabled={busy || remote.trim() === (status.remote ?? "")} onclick={() => step(() => api.gitSetRemote(remote))}>Save</button>
+      <input bind:value={remote} placeholder={t("Remote URL (https://github.com/you/notes.git)")} aria-label={t("Remote URL")} spellcheck="false" />
+      <button disabled={busy || remote.trim() === (status.remote ?? "")} onclick={() => step(() => api.gitSetRemote(remote))}>{t("Save")}</button>
     </div>
     <div class="row">
-      <span>Sync automatically</span>
+      <span>{t("Sync automatically")}</span>
       <select value={String(app.config.gitAutoSync ?? 0)} onchange={(e) => app.saveConfig({ gitAutoSync: Number(e.currentTarget.value) })}>
-        <option value="0">Off</option>
-        <option value="5">Every 5 minutes</option>
-        <option value="15">Every 15 minutes</option>
-        <option value="60">Every hour</option>
+        <option value="0">{t("Off")}</option>
+        <option value="5">{t("Every 5 minutes")}</option>
+        <option value="15">{t("Every 15 minutes")}</option>
+        <option value="60">{t("Every hour")}</option>
       </select>
-      <button disabled={app.sync.busy} onclick={() => app.syncNow()}>{app.sync.busy ? "Syncing…" : "Sync now"}</button>
+      <button disabled={app.sync.busy} onclick={() => app.syncNow()}>{app.sync.busy ? t("Syncing…") : t("Sync now")}</button>
     </div>
     <small>
-      If a note changed on both sides, your version stays and the other is saved next to it as “(conflict date)”. Sign-in uses Git's own credential helper.
+      {t("If a note changed on both sides, your version stays and the other is saved next to it as “(conflict date)”. Sign-in uses Git's own credential helper.")}
     </small>
   {/if}
 </div>

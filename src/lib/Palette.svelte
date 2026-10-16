@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "./i18n.svelte";
   import { onMount } from "svelte";
   import { basename, dirname, fuzzy } from "./api";
   import { app, type Command } from "./store.svelte";
@@ -24,7 +25,7 @@
 
   const items: Item[] = $derived.by(() => {
     if (mode.kind === "prompt") return [];
-    if (mode.kind === "commands") return rank(commands.map((c) => ({ label: c.name, detail: c.keys, run: c.run })), (i) => i.label);
+    if (mode.kind === "commands") return rank(commands.map((c) => ({ label: t(c.name), detail: c.keys, run: c.run })), (i) => i.label);
     if (mode.kind === "pick") return rank(mode.items, (i) => i.label);
     const notes = rank(
       app.notes.map((p) => ({ label: basename(p), detail: dirname(p), run: (nt: boolean) => app.open(p, nt) })),
@@ -32,7 +33,7 @@
     ).slice(0, 100);
     const name = q.trim();
     if (name && !app.notes.some((n) => n.toLowerCase() === (name.endsWith(".md") ? name : name + ".md").toLowerCase())) {
-      notes.push({ label: `Create “${name}”`, run: (nt) => app.openLink(name, nt) });
+      notes.push({ label: t("Create “{name}”", { name }), run: (nt) => app.openLink(name, nt) });
     }
     return notes;
   });
@@ -74,7 +75,7 @@
 </script>
 
 <div class="backdrop" role="presentation" onmousedown={(e) => e.target === e.currentTarget && close()}>
-  <div class="palette" role="dialog" aria-modal="true" aria-label={mode.kind === "prompt" ? mode.title : "Palette"} tabindex="-1" use:modal={() => close()}>
+  <div class="palette" role="dialog" aria-modal="true" aria-label={mode.kind === "prompt" ? mode.title : t("Command palette")} tabindex="-1" use:modal={() => close()}>
     {#if mode.kind === "prompt"}<div class="title">{mode.title}</div>{/if}
     <input
       bind:this={input}
@@ -87,7 +88,7 @@
       aria-activedescendant={mode.kind !== "prompt" && items.length ? `palette-opt-${sel}` : undefined}
       aria-label={mode.kind === "prompt" ? mode.title : "Search"}
       spellcheck="false"
-      placeholder={mode.kind === "switcher" ? "Find or create a note…" : mode.kind === "commands" ? "Type a command…" : mode.kind === "pick" ? mode.placeholder : ""}
+      placeholder={mode.kind === "switcher" ? t("Find or create a note…") : mode.kind === "commands" ? t("Type a command…") : mode.kind === "pick" ? mode.placeholder : ""}
     />
     {#if mode.kind !== "prompt"}
       <div class="list" id="palette-list" bind:this={list} role="listbox">
@@ -107,10 +108,10 @@
             {#if item.detail}<span class="detail">{item.detail}</span>{/if}
           </div>
         {:else}
-          <div class="empty">No results</div>
+          <div class="empty">{t("No results")}</div>
         {/each}
       </div>
-      <div class="hint">↑↓ navigate · ↵ open · ctrl+↵ new tab · esc close</div>
+      <div class="hint">{t("↑↓ navigate · ↵ open · ctrl+↵ new tab · esc close")}</div>
     {/if}
   </div>
 </div>

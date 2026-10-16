@@ -2,6 +2,8 @@
 // straight into the editor. All model traffic goes to the endpoint picked in
 // Settings → AI (a local server by default).
 
+import { t } from "./i18n.svelte";
+import { tk } from "./tk";
 import { api, streamChat, type ChatMessage, type ChunkRef } from "./api";
 import { begin, finish, step } from "./inline";
 import { app } from "./store.svelte";
@@ -16,7 +18,7 @@ class AI {
   /** True when a model is configured; otherwise points the user at Settings. */
   require() {
     if (this.ready) return true;
-    app.error = "Choose a model first: Settings → AI. Ollama or LM Studio run models locally.";
+    app.error = t("Choose a model first: Settings → AI. Ollama or LM Studio run models locally.");
     app.showSettings = true;
     return false;
   }
@@ -38,10 +40,10 @@ const EDITOR_SYSTEM =
   "You are a writing assistant inside a Markdown notes app. Reply with only the requested text: no preamble, no explanations, no code fences around it.";
 
 const INLINE = {
-  improve: { label: "Improving writing", replace: true, prompt: "Rewrite this to be clearer and more concise. Keep the meaning, language, tone and Markdown formatting:" },
-  fix: { label: "Fixing spelling and grammar", replace: true, prompt: "Fix spelling, grammar and punctuation. Change nothing else and keep the Markdown formatting:" },
-  summarize: { label: "Summarizing", replace: false, prompt: "Summarize this as a short Markdown bullet list:" },
-  continue: { label: "Continuing", replace: false, prompt: "Continue this note from where it ends, in the same voice and format. Write a few sentences or bullets:" },
+  improve: { label: tk("Improving writing"), replace: true, prompt: "Rewrite this to be clearer and more concise. Keep the meaning, language, tone and Markdown formatting:" },
+  fix: { label: tk("Fixing spelling and grammar"), replace: true, prompt: "Fix spelling, grammar and punctuation. Change nothing else and keep the Markdown formatting:" },
+  summarize: { label: tk("Summarizing"), replace: false, prompt: "Summarize this as a short Markdown bullet list:" },
+  continue: { label: tk("Continuing"), replace: false, prompt: "Continue this note from where it ends, in the same voice and format. Write a few sentences or bullets:" },
 } as const;
 
 export type InlineKind = keyof typeof INLINE;
@@ -52,13 +54,13 @@ export type InlineKind = keyof typeof INLINE;
 export async function inlineAI(kind: InlineKind) {
   const ed = app.focusedEditor();
   const doc = ed?.doc();
-  if (!ed || !doc) return void (app.error = "Open a note first.");
+  if (!ed || !doc) return void (app.error = t("Open a note first."));
   if (ai.busy || !ai.require()) return;
   const spec = INLINE[kind];
   const s = doc.state;
   const sel = s.selection.main;
   const text = kind === "continue" ? s.sliceDoc(Math.max(0, sel.head - 4000), sel.head) : s.sliceDoc(sel.from, sel.to);
-  if (!text.trim()) return void (app.error = kind === "continue" ? "Write something first." : "Select some text first.");
+  if (!text.trim()) return void (app.error = kind === "continue" ? t("Write something first.") : t("Select some text first."));
 
   const at = kind === "continue" ? sel.head : sel.to;
   const original = spec.replace ? text : "";

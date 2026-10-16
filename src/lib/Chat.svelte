@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { tk } from "./tk";
+  import { t } from "./i18n.svelte";
   import type { EditorView } from "@codemirror/view";
   import { basename, type ChatMessage, type ChunkRef } from "./api";
   import { ai, groundedMessages, linkCitations } from "./ai.svelte";
@@ -25,7 +27,7 @@
     try {
       const { messages, sources } = await groundedMessages(history, q, note);
       turn.sources = sources;
-      await ai.stream(messages, (t) => (turn.a += t), "Answering");
+      await ai.stream(messages, (t) => (turn.a += t), tk("Answering"));
     } catch (e) {
       turn.error = (e as Error).message;
     }
@@ -56,29 +58,29 @@
   <div class="turns" bind:this={list}>
     {#if !turns.length}
       <div class="intro">
-        <p><strong>Chat with your notes.</strong> Answers cite the notes they come from.</p>
+        <p><strong>{t("Chat with your notes.")}</strong> {t("Answers cite the notes they come from.")}</p>
         {#if !ai.ready}
-          <button class="primary" onclick={() => (app.showSettings = true)}>Choose a model in Settings</button>
-          <p class="hint">Runs locally with Ollama or LM Studio, or any OpenAI-compatible API.</p>
+          <button class="primary" onclick={() => (app.showSettings = true)}>{t("Choose a model in Settings")}</button>
+          <p class="hint">{t("Runs locally with Ollama or LM Studio, or any OpenAI-compatible API.")}</p>
         {:else}
-          <p class="hint">Model: {app.settings.aiModel}</p>
+          <p class="hint">{t("Model: {model}", { model: app.settings.aiModel })}</p>
         {/if}
       </div>
     {/if}
-    {#each turns as t}
-      <div class="q">{t.q}</div>
+    {#each turns as turn}
+      <div class="q">{turn.q}</div>
       <div class="a">
-        {#if t.error}
-          <div class="err">{t.error}</div>
-        {:else if t.done}
-          <div use:markdown={linkCitations(t.a, t.sources)}></div>
+        {#if turn.error}
+          <div class="err">{turn.error}</div>
+        {:else if turn.done}
+          <div use:markdown={linkCitations(turn.a, turn.sources)}></div>
         {:else}
-          <div class="streaming">{t.a || "…"}</div>
+          <div class="streaming">{turn.a || "…"}</div>
         {/if}
-        {#if t.done && t.sources.length}
+        {#if turn.done && turn.sources.length}
           <details>
-            <summary>{t.sources.length} sources</summary>
-            {#each t.sources as s, i}
+            <summary>{t(turn.sources.length === 1 ? "1 source" : "{n} sources", { n: turn.sources.length })}</summary>
+            {#each turn.sources as s, i}
               <button class="src" onclick={() => app.goto(s.path, s.line)}>[{i + 1}] {basename(s.path)}{s.heading ? ` › ${s.heading}` : ""}</button>
             {/each}
           </details>
@@ -89,18 +91,18 @@
   <div class="composer">
     <textarea
       bind:value={input}
-      placeholder="Ask about your notes…"
+      placeholder={t("Ask about your notes…")}
       rows="3"
       onkeydown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), send())}
     ></textarea>
     <div class="row">
-      <label><input type="checkbox" bind:checked={withNote} /> Include open note</label>
+      <label><input type="checkbox" bind:checked={withNote} /> {t("Include open note")}</label>
       <span class="spacer"></span>
-      {#if turns.length && !ai.busy}<button onclick={() => (turns = [])}>Clear</button>{/if}
+      {#if turns.length && !ai.busy}<button onclick={() => (turns = [])}>{t("Clear")}</button>{/if}
       {#if ai.busy}
-        <button onclick={() => ai.stop()}>Stop</button>
+        <button onclick={() => ai.stop()}>{t("Stop")}</button>
       {:else}
-        <button class="primary" disabled={!input.trim()} onclick={send}>Send</button>
+        <button class="primary" disabled={!input.trim()} onclick={send}>{t("Send")}</button>
       {/if}
     </div>
   </div>

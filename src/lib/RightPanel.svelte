@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { t } from "./i18n.svelte";
+  import { tk } from "./tk";
   import { tabKeys } from "./modal";
   import { api, basename, type LinkRef } from "./api";
   import { app } from "./store.svelte";
@@ -47,10 +49,10 @@
   const minLevel = $derived(Math.min(...headings.map((h) => h.level)));
 </script>
 
-<div class="tabs" role="tablist" aria-label="Side panel" use:tabKeys>
-  {#each [["backlinks", "Backlinks"], ["outline", "Outline"], ["properties", "Properties"], ["graph", "Graph"], ["chat", "Chat"]] as const as [id, label]}
+<div class="tabs" role="tablist" aria-label={t("Side panel")} use:tabKeys>
+  {#each [["backlinks", tk("Backlinks")], ["outline", tk("Outline")], ["properties", tk("Properties")], ["graph", tk("Graph")], ["chat", tk("Chat")]] as const as [id, label]}
     <button role="tab" aria-selected={app.right === id} tabindex={app.right === id ? 0 : -1} class:on={app.right === id} onclick={() => (app.right = id)}>
-      {label}
+      {t(label)}
     </button>
   {/each}
 </div>
@@ -59,7 +61,7 @@
   {#if app.right === "chat"}
     <Chat />
   {:else if !app.activePath}
-    <div class="empty">No note open</div>
+    <div class="empty">{t("No note open")}</div>
   {:else if app.right === "backlinks"}
     {#each groups as [path, refs] (path)}
       <div class="group">
@@ -69,28 +71,28 @@
         {/each}
       </div>
     {:else}
-      <div class="empty">No backlinks yet. Link here with [[{basename(app.activePath)}]].</div>
+      <div class="empty">{t("No backlinks yet. Link here with {link}.", { link: `[[${basename(app.activePath)}]]` })}</div>
     {/each}
     {#if related.length}
-      <h5>Related notes</h5>
+      <h5>{t("Related notes")}</h5>
       {#each related as [path, score] (path)}
         <div class="rel">
-          <button class="src" onclick={(e) => app.open(path, e.ctrlKey || e.metaKey)} title="{Math.round(score * 100)}% similar">{basename(path)}</button>
-          <button class="link" onclick={() => linkTo(path)} title="Insert a link to this note at the cursor">+ Link</button>
+          <button class="src" onclick={(e) => app.open(path, e.ctrlKey || e.metaKey)} title={t("{percent}% similar", { percent: Math.round(score * 100) })}>{basename(path)}</button>
+          <button class="link" onclick={() => linkTo(path)} title={t("Insert a link to this note at the cursor")}>{t("+ Link")}</button>
         </div>
       {/each}
     {/if}
   {:else if app.right === "graph"}
     <Graph local />
   {:else if app.right === "properties"}
-    {#if app.activePath.endsWith(".md")}<Properties />{:else}<div class="empty">Properties belong to notes.</div>{/if}
+    {#if app.activePath.endsWith(".md")}<Properties />{:else}<div class="empty">{t("Properties belong to notes.")}</div>{/if}
   {:else}
     {#each headings as h}
       <button class="heading" style="padding-left:{8 + (h.level - minLevel) * 14}px" onclick={() => app.goto(app.activePath!, h.line)}>
         {h.text}
       </button>
     {:else}
-      <div class="empty">No headings</div>
+      <div class="empty">{t("No headings")}</div>
     {/each}
   {/if}
 </div>

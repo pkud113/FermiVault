@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "./i18n.svelte";
   import { revealItemInDir } from "@tauri-apps/plugin-opener";
   import { assetUrl, kind } from "./api";
   import { app } from "./store.svelte";
@@ -21,8 +22,8 @@
     <!-- svelte-ignore a11y_media_has_caption -->
     <video controls {src}></video>
   {:else}
-    <p>This file type can't be previewed.</p>
-    <button onclick={() => revealItemInDir(absolute).catch((e) => (app.error = String(e)))}>Show in folder</button>
+    <p>{t("This file type can't be previewed.")}</p>
+    <button onclick={() => revealItemInDir(absolute).catch((e) => (app.error = String(e)))}>{t("Show in folder")}</button>
   {/if}
 </div>
 
