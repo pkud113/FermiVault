@@ -1,7 +1,8 @@
 <script lang="ts">
   import { setLanguage, t } from "$lib/i18n.svelte";
   import { tk } from "$lib/tk";
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
+  import { startup } from "$lib/startup";
   import { listen } from "@tauri-apps/api/event";
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { ask, open as pickFolder } from "@tauri-apps/plugin-dialog";
@@ -14,7 +15,6 @@
   import Recovery from "$lib/Recovery.svelte";
   import TagsPane from "$lib/TagsPane.svelte";
   import Viewer from "$lib/Viewer.svelte";
-  import Editor from "$lib/Editor.svelte";
   import FileTree from "$lib/FileTree.svelte";
   import SearchPane from "$lib/SearchPane.svelte";
   import RightPanel from "$lib/RightPanel.svelte";
@@ -23,10 +23,12 @@
   import Settings from "$lib/Settings.svelte";
   import { MAX_PANEL, MIN_PANEL, clampPanel, sidebars } from "$lib/ui";
   import { tabKeys } from "$lib/modal";
-  import { refreshTables } from "$lib/widgets";
+  import { loadEditor, refreshTables } from "$lib/host";
   import { emit, stopAll, syncPlugins } from "$lib/plugins";
 
   let ready = $state(false);
+  /** Loaded after the first frame (see `loadEditor`); a note opened before that shows once it's in. */
+  let Editor = $state<typeof import("$lib/Editor.svelte").default | null>(null);
   let leftW = $state(260);
   let rightW = $state(280);
   let vw = $state(1280);
@@ -243,9 +245,15 @@
         }
       }),
     ];
-    api.lastVault().then(async (v) => {
-      if (v) await app.openVault(v);
+    performance.mark("mounted");
+    startup.then(async () => {
       ready = true;
+      await tick();
+      performance.mark("rendered");
+      requestAnimationFrame(() => {
+        api.benchReady(); // marks "ready" for the startup budget in CI
+        loadEditor().then((m) => (Editor = m.default));
+      });
     });
     return () => unlisten.forEach((u) => u.then((f) => f()));
   });
@@ -330,7 +338,7 @@
             {#if pane.tabs.length}
               {@const tab = pane.tabs[pane.active]}
               {#if tab === GRAPH}<Graph />
-              {:else if kind(tab) === "note"}<Editor pane={pi} path={tab} />
+              {:else if kind(tab) === "note"}{#if Editor}<Editor pane={pi} path={tab} />{/if}
               {:else if kind(tab) === "canvas"}
                 <!-- Canvas code loads the first time a canvas is opened. -->
                 {#await import("$lib/Canvas.svelte") then m}{#key tab}<m.default path={tab} />{/key}{/await}
@@ -486,7 +494,7 @@
   .switch button {
     border: none;
     background: none;
-    padding: 5px 7px;
+    padding: 5px;
     display: grid;
     place-items: center;
   }

@@ -5,7 +5,7 @@
   import { basename, type ChatMessage, type ChunkRef } from "./api";
   import { ai, groundedMessages, linkCitations } from "./ai.svelte";
   import { app } from "./store.svelte";
-  import { host } from "./widgets";
+  import { host, loadEditor } from "./host";
 
   type Turn = { q: string; a: string; sources: ChunkRef[]; done: boolean; error?: string };
   let turns = $state<Turn[]>([]);
@@ -36,15 +36,20 @@
 
   /** Renders a finished answer with the live-preview editor (read-only), so [[links]] are clickable. */
   function markdown(node: HTMLElement, text: string) {
-    let view: EditorView = host.nested(text, 1);
-    node.append(view.dom);
+    let view: EditorView | null = null;
+    let alive = true;
+    const show = () => {
+      view?.destroy();
+      view = host.nested(text, 1);
+      node.append(view.dom);
+    };
+    loadEditor().then(() => alive && show());
     return {
       update(t: string) {
-        view.destroy();
-        view = host.nested(t, 1);
-        node.append(view.dom);
+        text = t;
+        if (view) show();
       },
-      destroy: () => view.destroy(),
+      destroy: () => ((alive = false), view?.destroy()),
     };
   }
 

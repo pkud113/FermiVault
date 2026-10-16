@@ -1,0 +1,39 @@
+name: Screenshots
+
+# README screenshots of the real app (scripts/screenshots.mjs). Run it from the Actions tab after
+# UI changes, then copy the PNGs from the artifact into docs/screenshots/.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths: [scripts/screenshots.mjs, .github/workflows/screenshots.yml]
+
+jobs:
+  screenshots:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: pnpm install --frozen-lockfile
+      - name: Build with the WebView2 DevTools port open (this build only)
+        shell: pwsh
+        run: |
+          $w = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).app.windows[0]
+          $w | Add-Member additionalBrowserArgs "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --remote-debugging-port=9222"
+          @{ app = @{ windows = @($w) } } | ConvertTo-Json -Depth 5 | Set-Content -Encoding utf8NoBOM "$env:RUNNER_TEMP/devtools.json"
+          pnpm tauri build --no-bundle --config "$env:RUNNER_TEMP/devtools.json"
+      - run: node scripts/screenshots.mjs src-tauri/target/release/fermivault.exe screenshots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: screenshots/

@@ -83,6 +83,28 @@ fn git_trusted(app: &tauri::AppHandle, vault: &Vault) -> bool {
     device_settings(app, vault).is_ok_and(|d| d.get("gitTrusted") == Some(&Value::Bool(true)))
 }
 
+/// Startup benchmark (scripts/bench-startup.ps1): when `FERMIVAULT_BENCH_READY` names a file,
+/// the first frame with the vault open writes it, with timings for each step (ms since launch).
+/// Does nothing otherwise.
+static BENCH: Mutex<Vec<(&str, u128)>> = Mutex::new(Vec::new());
+static LAUNCH: std::sync::OnceLock<u128> = std::sync::OnceLock::new();
+
+fn bench_mark(name: &'static str) {
+    if let Some(t0) = LAUNCH.get()
+        && std::env::var_os("FERMIVAULT_BENCH_READY").is_some()
+    {
+        BENCH.lock().unwrap().push((name, vault::now_ms() - t0));
+    }
+}
+
+#[tauri::command]
+async fn bench_ready(marks: Value) {
+    if let (Some(p), Some(t0)) = (std::env::var_os("FERMIVAULT_BENCH_READY"), LAUNCH.get()) {
+        let report = json!({ "launch": t0, "rust": *BENCH.lock().unwrap(), "webview": marks, "ready": vault::now_ms() - t0 });
+        let _ = std::fs::write(p, report.to_string());
+    }
+}
+
 #[tauri::command]
 async fn last_vault(app: tauri::AppHandle) -> Option<String> {
     let text = std::fs::read_to_string(state_file(&app).ok()?).ok()?;
@@ -94,6 +116,7 @@ async fn last_vault(app: tauri::AppHandle) -> Option<String> {
 /// immediately; a file watcher keeps the index (and the UI) in sync after that.
 #[tauri::command]
 async fn open_vault(app: tauri::AppHandle, state: State<'_, AppState>, path: String) -> Res<String> {
+    bench_mark("open_vault");
     let vault = Vault::new(&path)?;
     let root = vault.root.to_string_lossy().into_owned();
     // Images, PDFs and media in the vault load through the asset protocol; nothing else is exposed.
@@ -110,6 +133,7 @@ async fn open_vault(app: tauri::AppHandle, state: State<'_, AppState>, path: Str
 
     let (w_vault, w_app) = (vault.clone(), app.clone());
     let mut w_ix = Index::open(&vault)?;
+    bench_mark("index_open");
     let mut watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
         let Ok(ev) = res else { return };
         let rels: Vec<String> = ev.paths.iter().filter_map(|p| w_vault.rel(p)).collect();
@@ -124,6 +148,7 @@ async fn open_vault(app: tauri::AppHandle, state: State<'_, AppState>, path: Str
     })
     .map_err(err)?;
     watcher.watch(&vault.root, RecursiveMode::Recursive).map_err(err)?;
+    bench_mark("watching");
 
     let ix = Mutex::new(Index::open(&vault)?);
     *state.0.lock().unwrap() = Some(Arc::new(Open {
@@ -394,8 +419,8 @@ async fn tagged(state: State<'_, AppState>, tag: String) -> Res<Vec<String>> {
     state.get()?.ix.lock().unwrap().tagged(&tag)
 }
 
-#[tauri::command]
 /// The vault's settings, with this device's (plugins, Git) in place of any the vault carries.
+#[tauri::command]
 async fn vault_config(app: tauri::AppHandle, state: State<'_, AppState>) -> Res<serde_json::Value> {
     let v = &state.get()?.vault;
     let mut c = v.config();
@@ -455,12 +480,14 @@ async fn ai_set(state: State<'_, AppState>, id: String, connected: bool) -> Res<
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    LAUNCH.get_or_init(vault::now_ms);
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
             last_vault,
+            bench_ready,
             open_vault,
             list_files,
             read_note,

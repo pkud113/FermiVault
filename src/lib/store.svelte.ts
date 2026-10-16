@@ -5,7 +5,7 @@ import { ask } from "@tauri-apps/plugin-dialog";
 import { api, basename, dirname, fillTemplate, join, type Entry, type VaultConfig } from "./api";
 import { moved, serial, type Doc } from "./docs";
 import { serializeCanvas } from "./canvas";
-import { host } from "./widgets";
+import { host } from "./host";
 
 export type Settings = {
   theme: "system" | "light" | "dark";
@@ -148,13 +148,16 @@ class App {
       // Inside the write queue: no save can run between the switch and closing the old notes.
       await serial(async () => {
         const root = await api.openVault(path);
+        performance.mark("vault opened");
         for (const e of this.allSavers) e.closed(null);
         this.panes = [{ tabs: [], active: 0 }];
         this.focus = 0;
         this.root = root;
       });
       this.config = await api.config();
+      performance.mark("config loaded");
       await this.refreshFiles();
+      performance.mark("files listed");
     } catch (e) {
       this.error = String(e);
     }

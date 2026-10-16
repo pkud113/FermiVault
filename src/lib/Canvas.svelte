@@ -7,7 +7,9 @@
   import { api, assetUrl, basename, kind } from "./api";
   import { closeDocs, renameDocs, saveDoc, type Doc } from "./docs";
   import { app, type Saver } from "./store.svelte";
-  import { host } from "./widgets";
+  import { host } from "./host";
+  import { body } from "./frontmatter";
+  import "./editor"; // sets host.nested, the Markdown preview cards use
   import {
     PRESETS,
     anchor,
@@ -400,7 +402,7 @@
     let alive = true;
     host.read(file).then((t) => {
       if (!alive) return;
-      v = host.nested(t.slice(0, 4000), 1);
+      v = host.nested(body(t).slice(0, 4000), 1);
       el.append(v.dom);
     }, () => (el.textContent = t("Couldn't read this note.")));
     return { destroy: () => ((alive = false), v?.destroy()) };

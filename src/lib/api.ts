@@ -25,6 +25,15 @@ export type AiApp = { id: string; name: string; file: string; detected: boolean;
 
 export const api = {
   lastVault: () => invoke<string | null>("last_vault"),
+  /** Startup timings for the CI budget (scripts/bench-startup.ps1); ignored unless it's running. */
+  benchReady: () =>
+    invoke<void>("bench_ready", {
+      marks: {
+        timeOrigin: Math.round(performance.timeOrigin),
+        steps: performance.getEntriesByType("mark").map((m) => [m.name, Math.round(m.startTime)]),
+        dom: Math.round((performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined)?.domContentLoadedEventEnd ?? 0),
+      },
+    }),
   openVault: (path: string) => invoke<string>("open_vault", { path }),
   listFiles: () => invoke<Entry[]>("list_files"),
   read: (path: string) => invoke<string>("read_note", { path }),
