@@ -25,6 +25,7 @@ The installer isn't code-signed yet, so Windows SmartScreen may say "Windows pro
 - Link-safe rename/move (every `[[link]]` and `[x](note.md)` is rewritten)
 - **Properties** (YAML frontmatter) edited in the right panel, with text, list, date and checkbox fields
 - **Tables of notes**: a ```` ```table ```` block lists notes by tag or folder, filtered and sorted by their properties, live (see *Project board* in `fixtures/test-vault`)
+- **Canvas**: infinite boards of text cards, notes, images, links and groups with arrows, stored as open [JSON Canvas](https://jsoncanvas.org) `.canvas` files (see *Planning board* in `fixtures/test-vault`)
 - Image, PDF, audio and video viewers; file tree with drag-and-drop; trash instead of delete; light/dark themes
 - Live reload when files change on disk (external editors, sync tools, agents)
 

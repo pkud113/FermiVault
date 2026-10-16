@@ -56,9 +56,9 @@ export const basename = (p: string) => p.split("/").pop()!.replace(/\.md$/, "");
 export const dirname = (p: string) => (p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : "");
 export const join = (dir: string, name: string) => (dir ? `${dir}/${name}` : name);
 
-export type FileKind = "note" | "image" | "pdf" | "audio" | "video" | "other";
+export type FileKind = "note" | "canvas" | "image" | "pdf" | "audio" | "video" | "other";
 const KINDS: Record<string, FileKind> = {
-  md: "note", png: "image", jpg: "image", jpeg: "image", gif: "image", webp: "image", svg: "image", avif: "image", bmp: "image",
+  md: "note", canvas: "canvas", png: "image", jpg: "image", jpeg: "image", gif: "image", webp: "image", svg: "image", avif: "image", bmp: "image",
   pdf: "pdf", mp3: "audio", wav: "audio", ogg: "audio", m4a: "audio", flac: "audio", mp4: "video", webm: "video", mov: "video",
 };
 export const kind = (p: string): FileKind => KINDS[p.split(".").pop()!.toLowerCase()] ?? "other";

@@ -57,6 +57,7 @@
   const commands: Command[] = [
     { id: "switcher", name: "Quick switcher: open or create a note", keys: "Ctrl+O", run: () => (app.palette = { kind: "switcher" }) },
     { id: "new", name: "New note", keys: "Ctrl+N", run: () => app.newNote(dirname(app.activePath ?? "")) },
+    { id: "new-canvas", name: "New canvas", run: () => app.newCanvas(dirname(app.activePath ?? "")) },
     { id: "search", name: "Search vault", keys: "Ctrl+Shift+F", run: () => (app.reveal("left"), (app.left = "search")) },
     { id: "rename", name: "Rename current note", keys: "F2", run: () => app.activePath && app.rename(app.activePath) },
     { id: "delete", name: "Delete current note", run: () => app.activePath && app.remove(app.activePath) },
@@ -275,6 +276,9 @@
               {@const t = pane.tabs[pane.active]}
               {#if t === GRAPH}<Graph />
               {:else if kind(t) === "note"}<Editor pane={pi} path={t} />
+              {:else if kind(t) === "canvas"}
+                <!-- Canvas code loads the first time a canvas is opened. -->
+                {#await import("$lib/Canvas.svelte") then m}{#key t}<m.default path={t} />{/key}{/await}
               {:else}<Viewer path={t} />{/if}
             {:else}
               <div class="empty">

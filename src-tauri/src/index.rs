@@ -150,7 +150,8 @@ impl Index {
     pub fn refresh(&mut self, vault: &Vault, path: &str) -> Res<()> {
         let tx = self.db.transaction_with_behavior(TransactionBehavior::Immediate).map_err(err)?;
         match vault.abs(path).ok().and_then(|p| std::fs::metadata(p).ok()) {
-            Some(meta) if meta.is_file() => index_note(&tx, path, &vault.read(path)?, crate::vault::mtime(&meta))?,
+            // Only Markdown files are notes; saving a canvas or other file must not index it.
+            Some(meta) if meta.is_file() && path.ends_with(".md") => index_note(&tx, path, &vault.read(path)?, crate::vault::mtime(&meta))?,
             _ => remove_note(&tx, path)?,
         }
         tx.commit().map_err(err)
@@ -422,6 +423,23 @@ fn index_note(db: &Connection, path: &str, text: &str, mtime: i64) -> Res<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Saving a canvas (or any non-Markdown file) goes through `refresh` but isn't a note.
+    #[test]
+    fn only_markdown_is_indexed() {
+        let d = tempfile::tempdir().unwrap();
+        let v = Vault::new(d.path()).unwrap();
+        v.write(
+            "board.canvas",
+            r#"{"nodes":[{"id":"a","type":"text","text":"hello","x":0,"y":0,"width":1,"height":1}],"edges":[]}"#,
+        )
+        .unwrap();
+        let mut ix = Index::open(&v).unwrap();
+        ix.refresh(&v, "board.canvas").unwrap();
+        ix.sync(&v).unwrap();
+        assert!(ix.list("", 0, 10).unwrap().is_empty());
+        assert!(ix.search("hello", 10).unwrap().is_empty());
+    }
 
     /// Upgrading a v2 index adds properties without dropping embeddings.
     #[test]
