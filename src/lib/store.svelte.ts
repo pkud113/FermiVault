@@ -268,6 +268,23 @@ class App {
     });
   }
 
+  /** Web clipper: saves the article at `url` as a note in the clippings folder and opens it. */
+  async clip(url: string) {
+    const { clipFileName, clipNote, extract, uniquePath } = await import("./clipper");
+    this.error = null;
+    try {
+      const page = await extract(api.fetchPage, url.trim());
+      const folder = this.config.clipFolder ?? "Clippings";
+      const taken = new Set(this.files.map((f) => f.path.toLowerCase()));
+      const path = uniquePath(folder, clipFileName(page.meta.title, page.url), (p) => taken.has(p));
+      await api.create(path, clipNote(page.meta, page.markdown, page.url));
+      await this.refreshFiles();
+      this.open(path, true);
+    } catch (e) {
+      this.error = `Couldn't clip ${url}: ${e instanceof Error ? e.message : e}`;
+    }
+  }
+
   async newCanvas(dir = "") {
     const path = this.untitled(dir, ".canvas");
     await api.create(path, serializeCanvas({ nodes: [], edges: [] })).catch((e) => (this.error = String(e)));

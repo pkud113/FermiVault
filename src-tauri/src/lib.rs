@@ -1,4 +1,5 @@
 pub mod ai;
+pub mod clip;
 pub mod connect;
 pub mod embed;
 pub mod index;
@@ -220,6 +221,12 @@ async fn embed_install(app: tauri::AppHandle, state: State<'_, AppState>) -> Res
     Ok(())
 }
 
+/// Downloads a page for the web clipper (see `clip.rs`).
+#[tauri::command]
+async fn fetch_page(url: String) -> Res<clip::Page> {
+    clip::fetch(&url)
+}
+
 #[tauri::command]
 async fn ai_detect() -> Vec<ai::Endpoint> {
     ai::detect()
@@ -371,6 +378,7 @@ pub fn run() {
             related,
             embed_status,
             embed_install,
+            fetch_page,
             ai_detect,
             ai_models,
             ai_set_key,

@@ -45,6 +45,10 @@
       <input value={app.config.dailyFolder ?? "daily"} onchange={(e) => app.saveConfig({ dailyFolder: e.currentTarget.value.trim() || "daily" })} />
     </label>
     <label>
+      <span>Web clipper folder <small>Where “Clip web page” saves articles</small></span>
+      <input value={app.config.clipFolder ?? "Clippings"} onchange={(e) => app.saveConfig({ clipFolder: e.currentTarget.value.trim() || "Clippings" })} />
+    </label>
+    <label>
       <span>Daily note template <small>Path of a note; leave empty for none</small></span>
       <input
         value={app.config.dailyTemplate ?? ""}
