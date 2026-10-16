@@ -97,7 +97,7 @@ export async function browser() {
   mkdirSync(OUT, { recursive: true });
   const server = await serve();
   const profile = mkdtempSync(join(tmpdir(), "fv-ui-"));
-  const proc = spawn(findBrowser(), ["--headless=new", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "--no-first-run", "--no-default-browser-check", "--disable-gpu", "--hide-scrollbars", "--force-color-profile=srgb", "--disable-lcd-text", "about:blank"], { stdio: ["ignore", "ignore", "pipe"] });
+  const proc = spawn(findBrowser(), ["--headless=new", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "--no-first-run", "--no-default-browser-check", "--disable-gpu", "--hide-scrollbars", "--force-color-profile=srgb", "--disable-lcd-text", ...(process.env.CI ? ["--no-sandbox"] : []), "about:blank"], { stdio: ["ignore", "ignore", "pipe"] });
   const wsUrl = await new Promise((resolve, reject) => {
     let err = "";
     proc.stderr.on("data", (d) => {
