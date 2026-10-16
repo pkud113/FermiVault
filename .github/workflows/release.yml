@@ -4,19 +4,25 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      sourceTag:
+        description: Existing release tag to rebuild as signed Windows installers
+        required: true
+        default: v0.2.0
+        type: string
 
 permissions:
   contents: write
 
 jobs:
   build:
+    if: github.event_name == 'push'
     name: Build (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: windows-latest
-            args: ""
           - os: macos-latest
             args: --target universal-apple-darwin
           - os: ubuntu-22.04
@@ -50,3 +56,106 @@ jobs:
           releaseBody: Release notes are added before this draft is published.
           releaseDraft: true
           args: ${{ matrix.args }}
+
+  windows:
+    name: Build (windows-latest)
+    runs-on: windows-latest
+    environment: windows-signing
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      AZURE_SIGNING_ENDPOINT: ${{ vars.AZURE_SIGNING_ENDPOINT }}
+      AZURE_SIGNING_ACCOUNT: ${{ vars.AZURE_SIGNING_ACCOUNT }}
+      AZURE_SIGNING_CERTIFICATE_PROFILE: ${{ vars.AZURE_SIGNING_CERTIFICATE_PROFILE }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check signing configuration
+        shell: pwsh
+        env:
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+        run: |
+          $required = @(
+            'AZURE_CLIENT_ID', 'AZURE_TENANT_ID',
+            'AZURE_SIGNING_ENDPOINT', 'AZURE_SIGNING_ACCOUNT', 'AZURE_SIGNING_CERTIFICATE_PROFILE'
+          )
+          foreach ($name in $required) {
+            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
+              throw "Set $name in the windows-signing GitHub environment before releasing. See docs/WINDOWS_SIGNING.md."
+            }
+          }
+      - name: Preserve signing hook for rebuilding an existing release
+        shell: pwsh
+        env:
+          SOURCE_TAG: ${{ inputs.sourceTag }}
+        run: |
+          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch' -and $env:SOURCE_TAG -notmatch '^v\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') {
+            throw 'Choose an existing version tag, for example v0.2.0.'
+          }
+          Copy-Item -LiteralPath (Join-Path $env:GITHUB_WORKSPACE 'scripts/sign-windows.ps1') -Destination (Join-Path $env:RUNNER_TEMP 'sign-windows.ps1')
+      - name: Check out the existing release
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ inputs.sourceTag }}
+      - name: Check release version
+        if: github.event_name == 'workflow_dispatch'
+        shell: pwsh
+        env:
+          SOURCE_TAG: ${{ inputs.sourceTag }}
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ("v$version" -ne $env:SOURCE_TAG) { throw 'The source tag must match the application version.' }
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: pnpm install --frozen-lockfile
+      - name: Authenticate to Azure using GitHub OIDC
+        uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+      - name: Install Microsoft signing tools and configure Tauri
+        shell: pwsh
+        run: |
+          Install-Module ArtifactSigning -RequiredVersion 0.1.20 -Scope CurrentUser -Repository PSGallery -Force
+          $script = Join-Path $env:RUNNER_TEMP 'sign-windows.ps1'
+          $config = @{
+            bundle = @{
+              windows = @{
+                signCommand = @{
+                  cmd = 'pwsh'
+                  args = @('-NoLogo', '-NoProfile', '-File', $script, '%1')
+                }
+              }
+            }
+          }
+          $config | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'windows-signing.json') -Encoding utf8
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.event_name == 'push' && github.ref_name || '' }}
+          releaseName: ${{ github.event_name == 'push' && format('FermiVault {0}', github.ref_name) || '' }}
+          releaseBody: Release notes are added before this draft is published.
+          releaseDraft: true
+          args: --config "${{ runner.temp }}/windows-signing.json"
+      - name: Save signed Windows installers for verification
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: signed-windows-${{ inputs.sourceTag }}
+          if-no-files-found: error
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/msi/*.msi
