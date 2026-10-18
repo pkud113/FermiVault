@@ -10,6 +10,17 @@ Download the latest version from [FermiVault Releases](https://github.com/pkud11
 
 An MSI installer is also available for managed deployments. To upgrade, run the new installer; your vaults and settings are retained.
 
+### If your browser blocks the download
+
+Edge and Chrome may hold back a new installer with a message like "isn't commonly downloaded" for the same reputation reason as SmartScreen (below). In Edge, open the download list, choose **⋯ → Keep**, then **Show more → Keep anyway**. In Chrome, open the download list and choose **Keep** or **Download anyway**. Only do this for files from the official release page.
+
+### If an upgrade says "Unable to uninstall!"
+
+When a previous version is installed, the installer offers to uninstall it first. If that step fails:
+
+1. Click **OK**, choose **Do not uninstall**, and click **Next**. The new version installs over the old one, and your vaults and settings stay as they are.
+2. If that doesn't work, close FermiVault, and any AI app connected to it (Claude, Codex, Cursor…), since they run FermiVault in the background. Uninstall FermiVault from **Settings → Apps → Installed apps**, then run the new installer. Uninstalling doesn't touch your notes, which are plain files in your vault folders.
+
 The current Windows installers and their packaged app executables are digitally signed through Microsoft Azure Artifact Signing. The verified publisher is **Pardhu Kudumula**. You can inspect the downloaded installer's signature under **Properties → Digital Signatures**.
 
 ### Windows installation prompts

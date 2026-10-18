@@ -1,6 +1,6 @@
 [package]
 name = "fermivault"
-version = "0.2.0"
+version = "0.2.1"
 description = "Fast, local-first, AI-native Markdown notes"
 authors = ["FermiVault contributors"]
 license = "MIT"

@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.2.1 (2026-10-17)
+
+Fixes from an independent review of 0.2.0, and signed Windows installers.
+
+### Fixed
+- Hiding the left sidebar no longer collapses the editor area; every sidebar combination keeps the panes in place.
+- The graph redraws to fit when panes are split, sidebars resized or panes closed, instead of drawing over the next pane.
+- The outline, properties and word count always belong to the file you're looking at, never to a note you left.
+- Search shows only the newest query's results, and reports failures (with Retry) instead of showing "0 results".
+
+### Improved
+- **Save status:** tabs with unsaved edits show a dot, and the footer shows Unsaved changes / Saving… / Saved. If a save fails, it stays marked, with Retry, until it succeeds.
+- **Graph:** clearer links, Zoom and Fit buttons, a "Loading graph…" state, and a keyboard-friendly list of notes and their links.
+- **Settings** has sections (General, Editor, AI, Vault, Sync, Plugins), and its title and Close button stay in view.
+- **Properties:** labelled fields that fit the side panel. In live preview the YAML block collapses to one line until you move into it.
+- Shortcuts are shown in your keyboard's language (German Strg, French Maj, Spanish Mayús, ⌘ on macOS), and the last English strings in the translations are fixed.
+- The live preview toggle appears only for notes, and the graph tab is labelled "Graph".
+- **Windows:** installers and the app are signed by Pardhu Kudumula through Microsoft Azure Artifact Signing. See [docs/INSTALLATION.md](docs/INSTALLATION.md).
+
 ## 0.2.0 (2026-10-16)
 
 FermiVault now runs on Windows, macOS and Linux.
