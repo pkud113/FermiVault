@@ -8,7 +8,7 @@ import { Decoration, type DecorationSet, EditorView, WidgetType } from "@codemir
 import { syntaxTree } from "@codemirror/language";
 import { assetUrl, imageTarget, kind, sectionRange, type Table } from "./api";
 import { host, liveTables } from "./host";
-import { body } from "./frontmatter";
+import { body, bodyStart, readProps } from "./frontmatter";
 
 export { host };
 
@@ -264,6 +264,24 @@ class CheckboxWidget extends WidgetType {
   }
 }
 
+/** Live preview of the YAML properties block: one quiet line naming them. Moving the cursor into
+ *  it (clicking it, or arrowing up from the body) shows the YAML; source mode always does. */
+class PropertiesWidget extends WidgetType {
+  constructor(readonly keys: string) {
+    super();
+  }
+  eq(o: PropertiesWidget) {
+    return o.keys === this.keys;
+  }
+  toDOM() {
+    const el = document.createElement("div");
+    el.className = "cm-props-summary";
+    el.textContent = this.keys ? t("Properties: {keys}", { keys: this.keys }) : t("Properties");
+    el.title = t("Click to edit the YAML here, or use the Properties panel");
+    return el;
+  }
+}
+
 /** A widget plus the range whose lines, when the cursor is on them, show raw Markdown instead. */
 type Candidate = { from: number; to: number; block: boolean; widget: WidgetType };
 
@@ -283,6 +301,12 @@ function candidates(state: EditorState): Candidate[] {
   const text = doc.toString();
   const depth = state.facet(embedDepth);
   const lineSpan = (from: number, to: number) => [doc.lineAt(from).from, doc.lineAt(to).to] as const;
+
+  const start = bodyStart(text);
+  if (start > 0 && depth === 0) {
+    const end = text[start - 1] === "\n" ? start - 1 : start;
+    out.push({ from: 0, to: end, block: true, widget: new PropertiesWidget(readProps(text).map((p) => p.key).join(", ")) });
+  }
 
   syntaxTree(state).iterate({
     enter: (n) => {

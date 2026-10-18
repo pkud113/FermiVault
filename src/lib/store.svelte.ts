@@ -3,7 +3,7 @@ import type { EditorView } from "@codemirror/view";
 import type { EditorState, TransactionSpec } from "@codemirror/state";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { api, basename, dirname, fillTemplate, join, type Entry, type VaultConfig } from "./api";
-import { moved, serial, type Doc } from "./docs";
+import { moved, nextSave, serial, type Doc, type SaveState } from "./docs";
 import { serializeCanvas } from "./canvas";
 import { host } from "./host";
 
@@ -79,9 +79,12 @@ class App {
   firstSide = $state<"left" | "right">("left");
   palette = $state<PaletteMode | null>(null);
   showSettings = $state(false);
+  /** The Settings section shown when it opens (kept while the app runs). */
+  settingsSection = $state<"general" | "editor" | "ai" | "vault" | "sync" | "plugins">("general");
   settings = $state<Settings>(loadSettings());
-  /** Text of the focused editor (outline, word count). */
-  docText = $state("");
+  /** The note the focused editor last showed, with its text (outline, properties, word count).
+   *  Read it through `activeDoc`, which is null when the active tab is something else. */
+  doc = $state<{ path: string; text: string } | null>(null);
   /** Bumped whenever files change on disk; panels re-query on change. */
   version = $state(0);
   error = $state<string | null>(null);
@@ -89,6 +92,8 @@ class App {
   notice = $state<string | null>(null);
   /** Commands added by running plugins (shown in the palette). */
   pluginCommands = $state<Command[]>([]);
+  /** Notes and canvases whose latest edits aren't on disk yet, by path (shown on tabs and in the footer). */
+  saves = $state<Record<string, SaveState>>({});
   /** Git sync state, for the footer and Settings. */
   sync = $state<{ busy: boolean; last?: number; error?: string }>({ busy: false });
   /** Pending cursor jump, consumed by the editor showing that note. */
@@ -107,6 +112,19 @@ class App {
   get activePath(): string | null {
     const p = this.panes[this.focus];
     return p?.tabs[p.active] ?? null;
+  }
+
+  /** The active tab's note text, or null when the active tab isn't a loaded note (a canvas,
+   *  PDF or the graph, or a note still loading): panels never show another file's content. */
+  get activeDoc(): { path: string; text: string } | null {
+    return this.doc && this.doc.path === this.activePath ? this.doc : null;
+  }
+
+  /** Records a save event for `path` (see `nextSave`). */
+  setSave(path: string, event: "edit" | "saving" | "saved" | "failed", error?: string) {
+    const next = nextSave(this.saves[path], event, error);
+    if (next) this.saves[path] = next;
+    else delete this.saves[path];
   }
 
   saveSettings() {
@@ -150,6 +168,7 @@ class App {
         const root = await api.openVault(path);
         performance.mark("vault opened");
         for (const e of this.allSavers) e.closed(null);
+        this.saves = {};
         this.panes = [{ tabs: [], active: 0 }];
         this.focus = 0;
         this.root = root;
@@ -221,6 +240,7 @@ class App {
   renamed(from: string, to: string) {
     const move = (t: string) => moved(t, from, to);
     for (const p of this.panes) p.tabs = p.tabs.map(move);
+    this.saves = Object.fromEntries(Object.entries(this.saves).map(([p, s]) => [move(p), s]));
     if (this.config.bookmarks?.some((b) => move(b) !== b)) this.saveConfig({ bookmarks: this.config.bookmarks.map(move) });
   }
 
@@ -365,6 +385,7 @@ class App {
       await serial(async () => {
         await api.trash(path);
         for (const e of this.allSavers) e.closed(path);
+        for (const p of Object.keys(this.saves)) if (moved(p, path, "") !== p) delete this.saves[p];
         this.removed(path);
       });
       await this.refreshFiles();

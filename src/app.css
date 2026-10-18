@@ -11,6 +11,8 @@
   /* Secondary text: >= 4.5:1 on every surface it sits on (bg, bg-2, hover, active), and still visibly lighter than muted. */
   --fv-faint: #65656d;
   --fv-border: #e2e2df;
+  /* Graph links: >= 3:1 on bg and bg-2 (graphics contrast), still lighter than the nodes. */
+  --fv-graph-edge: #85858d;
   --fv-hover: #e9e9e6;
   --fv-active: #e2e2f6;
   --fv-accent: #5252cc;
@@ -41,6 +43,7 @@
   --fv-muted: #b6b6bf;
   --fv-faint: #9b9ba6;
   --fv-border: #2c2c32;
+  --fv-graph-edge: #74747f;
   --fv-hover: #2a2a30;
   --fv-active: #303050;
   --fv-accent: #9595f7;
@@ -305,4 +308,19 @@ span.cm-embed {
   margin: 0 6px 0 0;
   vertical-align: middle;
   cursor: pointer;
+}
+
+/* Live preview: the YAML properties block, collapsed (see PropertiesWidget). */
+.cm-props-summary {
+  font-size: 12.5px;
+  color: var(--fv-faint);
+  background: var(--fv-bg-2);
+  border: 1px solid var(--fv-border);
+  border-radius: 6px;
+  padding: 3px 10px;
+  margin: 2px 0 6px;
+  cursor: text;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

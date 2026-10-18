@@ -45,3 +45,11 @@ export function arrowIndex(key: string, i: number, n: number, wrap: boolean, pre
   if (key === prev) return wrap ? (i - 1 + n) % n : Math.max(0, i - 1);
   return -1;
 }
+
+/** A shortcut as people read it on their keyboard: "Ctrl+Shift+D" → "Strg+Umschalt+D" in German
+ *  (through `tr`), "⌘⇧D" on macOS, where the app's Ctrl shortcuts are Cmd. */
+export function formatKeys(combo: string, tr: (s: string) => string, mac: boolean): string {
+  const parts = combo.split(/\+(?=.)/);
+  if (mac) return parts.map((p) => ({ Ctrl: "⌘", Shift: "⇧", Alt: "⌥" })[p] ?? (p.length === 1 ? p.toUpperCase() : tr(p))).join("");
+  return parts.map((p) => (["Ctrl", "Shift", "Alt", "Enter", "Tab"].includes(p) ? tr(p) : p)).join("+");
+}

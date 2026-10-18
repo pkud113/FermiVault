@@ -20,8 +20,11 @@ function block(text: string): [number, number] | null {
   return null;
 }
 
+/** Where the note body starts: just after the properties block (0 without one). */
+export const bodyStart = (text: string) => block(text)?.[1] ?? 0;
+
 /** The note without its properties block, for previews and embeds. */
-export const body = (text: string) => text.slice(block(text)?.[1] ?? 0);
+export const body = (text: string) => text.slice(bodyStart(text));
 
 type Entry = Prop & { from: number; to: number };
 

@@ -18,6 +18,7 @@ class AI {
   require() {
     if (this.ready) return true;
     app.error = t("Choose a model first: Settings → AI. Ollama or LM Studio run models locally.");
+    app.settingsSection = "ai";
     app.showSettings = true;
     return false;
   }

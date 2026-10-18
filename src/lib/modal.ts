@@ -60,7 +60,11 @@ export function menuKeys(node: HTMLElement, close: () => void) {
 export function tabKeys(node: HTMLElement) {
   const keydown = (e: KeyboardEvent) => {
     const tabs = [...node.querySelectorAll<HTMLElement>(':scope > [role="tab"]')];
-    const to = arrowIndex(e.key, tabs.indexOf(e.target as HTMLElement), tabs.length, true);
+    const i = tabs.indexOf(e.target as HTMLElement);
+    // Vertical lists (Settings sections) also take Up/Down; they lay out as a row on narrow windows.
+    const vertical = node.getAttribute("aria-orientation") === "vertical";
+    const up = vertical ? arrowIndex(e.key, i, tabs.length, true, "ArrowUp", "ArrowDown") : -1;
+    const to = up >= 0 ? up : arrowIndex(e.key, i, tabs.length, true);
     if (to < 0 || !tabs.includes(e.target as HTMLElement)) return;
     e.preventDefault();
     tabs[to].click();

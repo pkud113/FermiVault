@@ -1,7 +1,7 @@
 // Save/load rules for open notes. Run with `pnpm test` (Node's built-in runner, no extra deps).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { closeDocs, PaneDocs, renameDocs, saveDoc, serial, type Doc } from "../src/lib/docs.ts";
+import { closeDocs, nextSave, PaneDocs, renameDocs, saveDoc, serial, type Doc } from "../src/lib/docs.ts";
 
 type S = { text: string };
 const text = (s: S) => s.text;
@@ -179,4 +179,17 @@ test("a save reports when disk changed since the last sync, and passes the right
   fs.files.set("V:a.md", "agent edit"); // someone else writes
   d.state = { text: "mine 2" };
   assert.equal(await saveDoc(d, text, fs.write), true, "conflict reported");
+});
+
+test("save state: edits are pending, then saving, then saved; a failure stays until a save succeeds", () => {
+  let s = nextSave(undefined, "edit");
+  assert.deepEqual(s, { state: "pending" });
+  s = nextSave(s!, "saving");
+  assert.deepEqual(s, { state: "saving" });
+  assert.equal(nextSave(s!, "saved"), null);
+  s = nextSave(s!, "failed", "disk full");
+  assert.deepEqual(s, { state: "failed", error: "disk full" });
+  assert.deepEqual(nextSave(s!, "saving"), s, "a retry doesn't hide the failure");
+  assert.deepEqual(nextSave(s!, "edit"), s, "nor does typing");
+  assert.equal(nextSave(s!, "saved"), null, "a successful save clears it");
 });

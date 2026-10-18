@@ -45,6 +45,29 @@ jobs:
       - run: cargo test
         working-directory: src-tauri
 
+  ui:
+    name: Rendered UI (headless Chrome)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm test:ui
+        env:
+          FV_BROWSER: /usr/bin/google-chrome
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-screenshots
+          path: tests/ui/out/
+
   budgets:
     name: Performance budgets (Windows, 10,000 notes)
     runs-on: windows-latest
@@ -64,6 +87,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Bench vault
         run: node scripts/bench-vault.mjs "${{ runner.temp }}/bench-vault"
+      # Unsigned, for the size and startup checks only: never uploaded. Release installers are
+      # built and signed by release.yml (docs/WINDOWS_SIGNING.md).
       - name: Build the installer
         run: pnpm tauri build --bundles nsis
       - name: Installer under 15 MB

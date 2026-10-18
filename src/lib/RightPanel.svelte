@@ -39,7 +39,7 @@
   const headings = $derived.by(() => {
     const out: { level: number; text: string; line: number }[] = [];
     let fence = false;
-    app.docText.split("\n").forEach((l, i) => {
+    (app.activeDoc?.text ?? "").split("\n").forEach((l, i) => {
       if (/^\s*(```|~~~)/.test(l)) fence = !fence;
       const m = !fence && /^(#{1,6})\s+(.+?)\s*#*\s*$/.exec(l);
       if (m) out.push({ level: m[1].length, text: m[2], line: i + 1 });
@@ -86,6 +86,10 @@
     <Graph local />
   {:else if app.right === "properties"}
     {#if app.activePath.endsWith(".md")}<Properties />{:else}<div class="empty">{t("Properties belong to notes.")}</div>{/if}
+  {:else if !app.activePath.endsWith(".md")}
+    <div class="empty">{t("The outline lists a note's headings. This file has none.")}</div>
+  {:else if !app.activeDoc}
+    <div class="empty" role="status">{t("Loading…")}</div>
   {:else}
     {#each headings as h}
       <button class="heading" style="padding-left:{8 + (h.level - minLevel) * 14}px" onclick={() => app.goto(app.activePath!, h.line)}>

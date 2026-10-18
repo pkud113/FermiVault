@@ -66,13 +66,16 @@
     timer = undefined;
     const d = doc;
     if (!d) return Promise.resolve(true);
+    if (!d.closed && d.state !== d.saved) app.setSave(d.path, "saving");
     return saveDoc(d, (s) => s, api.write).then(
       (conflict) => {
+        app.setSave(d.path, !d.closed && d.state !== d.saved ? "edit" : "saved");
         if (conflict) app.error = t("{path} was also changed outside FermiVault. Your version is saved; the other one is in File recovery.", { path: d.path });
         return true;
       },
       (e) => {
-        if (d.closed) return false;
+        if (d.closed) return (app.setSave(d.path, "saved"), false);
+        app.setSave(d.path, "failed", String(e));
         app.error = t("Couldn't save {path}: {error}. Your changes are kept and FermiVault keeps retrying.", { path: d.path, error: String(e) });
         timer = setTimeout(persist, 5000);
         return false;
@@ -84,6 +87,7 @@
   function changed() {
     if (!doc) return;
     doc.state = serializeCanvas($state.snapshot(canvas) as Canvas);
+    app.setSave(doc.path, "edit");
     clearTimeout(timer);
     timer = setTimeout(persist, 500);
   }
@@ -107,6 +111,7 @@
     canvas = parseCanvas(prev);
     selected = new Set();
     doc.state = prev;
+    app.setSave(doc.path, "edit");
     clearTimeout(timer);
     timer = setTimeout(persist, 500);
   }

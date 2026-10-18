@@ -38,11 +38,14 @@ Building Rust inside a synced folder (OneDrive, Dropbox) is slow. Point `CARGO_T
 ```bash
 pnpm check
 pnpm test
+pnpm build && pnpm test:ui
 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
 CI runs the same checks on Windows, macOS and Linux, plus the performance budgets below.
+
+`pnpm test:ui` runs the real frontend build in headless Chrome or Edge, with the Rust backend replaced by an in-memory one (`tests/ui/backend.js`) and `fixtures/test-vault` as the vault. Its tests check what you see: layout at different window sizes, panels following the active file, save and search states, and German text. Screenshots land in `tests/ui/out/`. Set `FV_BROWSER` if your browser isn't found.
 
 - Keep a pull request to one change, and add a test when you fix a bug.
 - Follow the code around you. Prefer the standard library and existing dependencies to new ones; every dependency ships to every user.
@@ -83,3 +86,5 @@ Rules that keep it fast:
 ## Releases
 
 Maintainers bump the version in `package.json`, `src-tauri/Cargo.toml` and `src-tauri/tauri.conf.json`, add the changes to `CHANGELOG.md`, and push a `vX.Y.Z` tag. The Release workflow builds the installers into a draft GitHub release, which is published once the installers are checked.
+
+Windows installers are built and signed only by the Release workflow's `windows-signing` job (Azure Artifact Signing over GitHub OIDC; see [docs/WINDOWS_SIGNING.md](docs/WINDOWS_SIGNING.md)). If signing fails, the job fails; it never falls back to unsigned installers. Before publishing a draft, check that both Windows installers have a `Valid`, timestamped signature from Pardhu Kudumula. Never upload Windows installers built anywhere else to a release, including local builds and the CI performance-budget build, which are unsigned. To rebuild an already published version, use the workflow's manual run, which saves signed installers as an artifact and doesn't touch the release.
