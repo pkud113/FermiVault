@@ -22,6 +22,8 @@ Get the latest version from [**Releases**](https://github.com/pkud113/FermiVault
 
 Windows installers and the app are digitally signed by **Pardhu Kudumula** through Microsoft Azure Artifact Signing.
 
+> **A note for Windows users:** FermiVault is a newly published app. Windows SmartScreen may show **“Windows protected your PC”** or describe it as unrecognized while download reputation builds, even when the installer has a valid digital signature. You can verify **Pardhu Kudumula** under **Properties → Digital Signatures**. [Microsoft explains how this reputation check works](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation).
+
 See the [installation guide](docs/INSTALLATION.md) for setup steps, publisher verification, and help with Windows or macOS installation prompts.
 
 Git sync uses the `git` already on your computer: it comes with macOS (Xcode command-line tools) and most Linux systems; on Windows, get it from [git-scm.com](https://git-scm.com).
