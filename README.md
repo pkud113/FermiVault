@@ -1,3 +1,5 @@
+<img src="src-tauri/icons/128x128@2x.png" alt="" width="96" height="96" />
+
 # FermiVault
 
 [![CI](https://github.com/pkud113/FermiVault/actions/workflows/ci.yml/badge.svg)](https://github.com/pkud113/FermiVault/actions/workflows/ci.yml)
