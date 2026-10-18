@@ -272,6 +272,7 @@
   <div class="splash"></div>
 {:else if !app.root}
   <div class="welcome">
+    <img class="logo" src="/favicon.png" alt="" width="88" height="88" />
     <h1>FermiVault</h1>
     <p>{t("Fast, local-first notes that your AI apps can read and edit too.")}</p>
     <button class="primary big" onclick={chooseVault}>{t("Open folder as vault")}</button>
@@ -453,6 +454,9 @@
     gap: 12px;
     text-align: center;
     padding: 16px;
+  }
+  .welcome .logo {
+    margin-bottom: 4px;
   }
   .welcome h1 {
     font-size: 40px;
