@@ -65,8 +65,18 @@ Set these environment **variables** (Settings → Environments → windows-signi
 
 For the configured FermiVault deployment, the account is `fermivault-signing`,
 the endpoint is `https://eus.codesigning.azure.net`, and the Public Trust profile
-name is `fermivault-release`. The profile cannot be created until Microsoft's
-publisher identity validation succeeds.
+name is `fermivault-release`, bound to the verified individual identity
+**Pardhu Kudumula**. A new profile requires completed publisher identity
+validation.
+
+Public Trust certificate subjects contain the verified common name,
+organization, city, state, and country. Windows may display all of these fields
+in its publisher line, including the individual's name twice. This display is
+controlled by Windows and the issued certificate. Azure's `IncludeCity`,
+`IncludeState`, and `IncludeCountry` switches apply only to Private Trust
+profiles, so they cannot make a Public Trust publisher line name-only. Keep
+street address and postal code excluded from the public profile. See
+[Microsoft's certificate profile parameters](https://learn.microsoft.com/en-us/powershell/module/az.artifactsigning/new-azartifactsigningcertificateprofile).
 
 These are resource identifiers, not passwords. Authentication uses a short-lived
 GitHub OIDC token exchanged for Azure access. Private signing keys stay in Azure.
