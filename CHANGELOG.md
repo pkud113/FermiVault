@@ -3,7 +3,7 @@
 ## 0.2.2 (2026-10-18)
 
 ### Changed
-- New app icon: the FermiVault F with curved, wing-like arms, on every platform and on the welcome screen.
+- New app icon: the FermiVault F with sharp beveled arms, on every platform and on the welcome screen.
 
 ## 0.2.1 (2026-10-17)
 
