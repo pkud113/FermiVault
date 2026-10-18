@@ -20,9 +20,8 @@ Get the latest version from [**Releases**](https://github.com/pkud113/FermiVault
 | macOS 11+ (Apple silicon and Intel) | `FermiVault_x.y.z_universal.dmg` | Open it and drag FermiVault to Applications. |
 | Linux (x64) | `.AppImage`, `.deb` or `.rpm` | AppImage: `chmod +x` it and run it. Debian/Ubuntu: `sudo apt install ./FermiVault_x.y.z_amd64.deb`. |
 
-The apps aren't signed with a paid certificate yet, so your OS will warn you the first time:
-- **Windows:** SmartScreen says "Windows protected your PC". Choose **More info → Run anyway**.
-- **macOS:** the first open is blocked. Go to **System Settings → Privacy & Security** and choose **Open Anyway** next to the FermiVault message.
+- **Windows:** the installers and the app are signed through Microsoft Azure Artifact Signing, with the verified publisher **Pardhu Kudumula**. Before you run an installer, you can check its signature under **Properties → Digital Signatures**. A new release can still show a [SmartScreen reputation warning](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation) until enough people have downloaded it. If it does, check that the publisher shown is Pardhu Kudumula, then choose **More info → Run anyway**.
+- **macOS:** the app isn't notarized yet, so the first open is blocked. Go to **System Settings → Privacy & Security** and choose **Open Anyway** next to the FermiVault message.
 
 Git sync uses the `git` already on your computer: it comes with macOS (Xcode command-line tools) and most Linux systems; on Windows, get it from [git-scm.com](https://git-scm.com).
 
