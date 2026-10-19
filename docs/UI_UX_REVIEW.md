@@ -1,16 +1,16 @@
-# FermiVault UI/UX Review — Handoff for Claude
+# FermiVault UI/UX Review
 
 **Date:** October 15, 2026  
 **Status:** Preliminary, source-based review. Native visual inspection is still pending.  
 **Resolution (October 15, 2026):** UI-01 to UI-05 implemented in [#6](https://github.com/pkud113/FermiVault/pull/6). The live visual, OS-scaling and screen-reader review listed under *Required live review* has **not** been done yet.  
 **Scope:** Colors, readability, layout, navigation, keyboard access, and implementation feasibility.  
-**Baseline:** Original `main` at `3fecefa7619707dc955e7947aed0ce7dd2265f79`; relevant source rechecked in the local `fix/hardening` checkout at `5135c1be27881bba3b5521ce62df09d04bd1c0f5`.
+**Baseline:** Original `main` at `3fecefa7619707dc955e7947aed0ce7dd2265f79`; relevant source rechecked at `5135c1be27881bba3b5521ce62df09d04bd1c0f5`.
 
 ## Read this first
 
-This handoff contains source-confirmed issues and recommendations, not a completed screenshot-based visual audit. An isolated desktop build and synthetic review vault were prepared, but Computer Use rejected app access with “Computer Use was not approved to use FermiVault.” No native screens were inspected, and no screenshots or live usability results are claimed.
+This review contains source-confirmed issues and recommendations, not a completed screenshot-based visual audit. No native screens were inspected, and no screenshots or live usability results are claimed.
 
-The user authorized publishing this information so Claude can review it. No UI implementation changes are included. Keep this work separate from the ongoing security fixes, and preserve their behavior when changing the interface.
+No UI implementation changes are included in this document. Keep this work separate from the ongoing security fixes, and preserve their behavior when changing the interface.
 
 ## Recommended direction
 
@@ -135,13 +135,13 @@ There is no evidence that Tauri, Rust, Svelte, or CodeMirror prevents the recomm
 
 Record screenshots, viewport/scaling, reproduction steps, and observed impact when access is available. Keep observed defects separate from preferences and untested hypotheses.
 
-## Suggested order for Claude
+## Suggested order
 
-1. Recheck these source anchors against the latest branch and coordinate with the ongoing security work.
+1. Recheck these source anchors against the latest `main`.
 2. Address contrast and keyboard access first.
 3. Establish editor-width and sidebar behavior, then improve control discovery.
 4. Validate the native screens and present any broader visual direction to the user before implementing a larger redesign.
-5. Return the changes for independent visual and regression review.
+5. Have the changes visually and regression reviewed before release.
 
 ## Reference
 

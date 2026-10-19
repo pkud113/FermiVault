@@ -2,7 +2,7 @@
 name = "fermivault"
 version = "0.2.2"
 description = "Fast, local-first, AI-native Markdown notes"
-authors = ["FermiVault contributors"]
+authors = ["Pardhu Kudumula"]
 license = "MIT"
 edition = "2024"
 

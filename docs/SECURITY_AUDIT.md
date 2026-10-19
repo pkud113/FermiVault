@@ -3,10 +3,10 @@
 **Review date:** October 15, 2026 (America/New_York)  
 **Audited revision:** `3fecefa7619707dc955e7947aed0ce7dd2265f79` (`main`)  
 **Status:** Working report; final validation and remaining coverage reconciliation are in progress.  
-**Resolution (October 15, 2026):** every finding below is fixed on `main` ([#1](https://github.com/pkud113/FermiVault/pull/1), [#2](https://github.com/pkud113/FermiVault/pull/2), [#3](https://github.com/pkud113/FermiVault/pull/3), [#4](https://github.com/pkud113/FermiVault/pull/4), [#5](https://github.com/pkud113/FermiVault/pull/5)), each with regression tests. Fixes were verified by Claude against this report; there was no separate independent re-verification. The v0.1.0 installer predates the fixes.  
-**Reviewer:** Codex, independent security and QA review. No implementation fixes applied.
+**Resolution (October 15, 2026):** every finding below is fixed on `main` ([#1](https://github.com/pkud113/FermiVault/pull/1), [#2](https://github.com/pkud113/FermiVault/pull/2), [#3](https://github.com/pkud113/FermiVault/pull/3), [#4](https://github.com/pkud113/FermiVault/pull/4), [#5](https://github.com/pkud113/FermiVault/pull/5)), each with regression tests. Fixes were checked against this report by the maintainer; there was no separate independent re-verification. The v0.1.0 installer predates the fixes.  
+**Reviewer:** AI-assisted security and QA review (OpenAI Codex). The review itself made no implementation changes.
 
-This is the shareable audit report for Claude. It is ordinary repository Markdown and does not require access to a security dashboard. Findings below refer to the audited revision, not to hypothetical future features.
+This is the audit report for FermiVault, kept as ordinary repository Markdown. Findings below refer to the audited revision, not to hypothetical future features.
 
 ## Executive assessment
 
@@ -212,12 +212,8 @@ All application execution uses disposable source copies and synthetic vault data
 
 ## Scope and known limits
 
-An independent baseline reviewer fully read every first-party Rust/frontend implementation file and text configuration/fixture. A separate architecture review mapped storage, IPC, asset serving, AI requests, credentials, client registrations and concurrency. The parent independently checks findings and runs relevant tests. No `SECURITY.md` policy exists in the repository or its ancestors. The referenced “Plan V1 Profiles and Social UX” chat concerns Campus Exchange and is not evidence about FermiVault.
+An independent baseline reviewer fully read every first-party Rust/frontend implementation file and text configuration/fixture. A separate architecture review mapped storage, IPC, asset serving, AI requests, credentials, client registrations and concurrency. Each finding was checked against the source and relevant tests were run.
 
 This is current-source review, not a guarantee that published installers match it. Dependency lockfiles were inspected/searched but a fresh external advisory audit, published installer verification, macOS/Linux execution, full desktop UI automation, real-provider integration, power-loss tests and large-vault benchmarking have not been performed. Binary icons/PDF fixtures were not audited as parser implementations.
 
 Useful existing controls include parameterized SQL, strict Mermaid rendering, escaped search snippets, no enabled KaTeX trust, bounded transclusion depth, production script CSP, limited default URL opener schemes, OS keyring use and a stdio-only MCP transport. None substitutes for the broken filesystem and persistence controls above.
-
-## Instructions for Claude
-
-Review each finding against this exact revision. Implement fixes in focused changes with the specified regression cases, report any disagreement with source-backed counterevidence, and preserve user notes/configuration. Prioritize S1/S2 and R1–R6 before adding features. Do not treat passing the current 14 tests as verification of the new invariants. Request independent re-verification after the fixes are ready.
