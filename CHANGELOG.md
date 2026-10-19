@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.3 (2026-10-19)
+
+### Changed
+- The license and package metadata now name the author, Pardhu Kudumula. No other changes from 0.2.2.
+
 ## 0.2.2 (2026-10-18)
 
 ### Changed

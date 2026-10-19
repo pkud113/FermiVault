@@ -1,6 +1,6 @@
 {
   "name": "fermivault",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Fast, local-first, AI-native Markdown notes",
   "type": "module",
   "scripts": {
